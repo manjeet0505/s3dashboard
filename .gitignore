@@ -105,3 +105,22 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Uploads directory
+uploads/
+
+# Resume parser temporary files
+temp/
+*.pdf
+*.docx
+*.doc
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/

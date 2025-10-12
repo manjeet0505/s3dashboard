@@ -8,10 +8,11 @@ export default function Sidebar({ activeModule, onModuleChange }) {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard (Home)', icon: 'fas fa-home' },
     { id: 'resume-analysis', label: 'Resume Analysis', icon: 'fas fa-file-alt' },
+    { id: 'resume-scorecard', label: 'AI Scorecard', icon: 'fas fa-robot' },
     { id: 'job-recommendations', label: 'Job Recommendations', icon: 'fas fa-briefcase' },
     { id: 'progress-tracker', label: 'Progress Tracker', icon: 'fas fa-chart-line' },
     { id: 'mentor-connect', label: 'Mentor Connect', icon: 'fas fa-users' },
-    { id: 'ai-assistant', label: 'AI Assistant', icon: 'fas fa-robot' },
+    { id: 'ai-assistant', label: 'AI Assistant', icon: 'fas fa-comments' },
     { id: 'settings', label: 'Settings / Profile', icon: 'fas fa-cog' },
   ];
 

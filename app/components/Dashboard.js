@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import TopNavbar from './TopNavbar';
 import DashboardHome from './modules/DashboardHome';
 import ResumeAnalysis from './modules/ResumeAnalysis';
+import ResumeScorecard from './modules/ResumeScorecard';
 import JobRecommendations from './modules/JobRecommendations';
 import ProgressTracker from './modules/ProgressTracker';
 import MentorConnect from './modules/MentorConnect';
@@ -72,6 +73,8 @@ export default function Dashboard({ onLogout }) {
         return <DashboardHome user={user} />;
       case 'resume-analysis':
         return <ResumeAnalysis user={user} />;
+      case 'resume-scorecard':
+        return <ResumeScorecard user={user} />;
       case 'job-recommendations':
         return <JobRecommendations user={user} />;
       case 'progress-tracker':

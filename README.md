@@ -1,164 +1,212 @@
-# S3 Dashboard - Your Smart Path to Career Success 🚀
+# S3 Dashboard - Resume Analysis Platform
 
-A comprehensive career development platform that helps students accelerate their career journey with AI-powered tools, personalized job recommendations, and expert mentorship guidance.
+A comprehensive Next.js application with AI-powered resume parsing and analysis capabilities.
 
-## Features
+## 🚀 Features
 
-- **🎯 Resume Analysis**: AI-based resume feedback and optimization
-- **💼 Job Recommendations**: Personalized job listings based on your profile
-- **📊 Progress Tracking**: Track your learning journey with detailed insights
-- **🤝 Mentor Connect**: Find experienced mentors and senior students
-- **🤖 AI Assistant**: Get instant help and guidance
-- **⚙️ Settings & Profile**: Manage your account and preferences
+- **User Authentication**: Secure login/signup with JWT tokens
+- **Resume Upload**: Support for PDF, DOC, and DOCX files
+- **AI-Powered Analysis**: Python microservice with spaCy NLP processing
+- **Real-time Dashboard**: Dynamic stats and insights based on uploaded resumes
+- **Skills Extraction**: Automatic identification of technical skills
+- **ATS Scoring**: Applicant Tracking System compatibility scoring
+- **MongoDB Integration**: Persistent storage for user data and resume analysis
 
-## Tech Stack
+## 🏗️ Architecture
 
-- **Frontend**: Next.js 14, React 18, Tailwind CSS
-- **Backend**: Next.js API Routes
-- **Database**: MongoDB
-- **Authentication**: JWT with bcrypt
-- **UI/UX**: Framer Motion, Lucide React Icons
-- **Styling**: Tailwind CSS with custom components
+```
+Frontend (Next.js) ←→ Backend (Next.js API) ←→ Python Microservice
+                           ↓
+                    MongoDB Database
+```
 
-## Prerequisites
-
-- Node.js 18+ 
-- MongoDB (local or cloud)
-- npm or yarn
-
-## Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd s3
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**
-   Create a `.env.local` file in the root directory:
-   ```env
-   # MongoDB Connection String
-   MONGODB_URI=mongodb://localhost:27017/s3-dashboard
-   
-   # JWT Secret Key (change this in production)
-   JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-   
-   # Next.js Configuration
-   NEXTAUTH_URL=http://localhost:3000
-   NEXTAUTH_SECRET=your-nextauth-secret-key
-   ```
-
-4. **Set up MongoDB**
-   - Install MongoDB locally or use MongoDB Atlas
-   - Create a database named `s3-dashboard`
-   - The application will automatically create the necessary collections
-
-5. **Run the development server**
-   ```bash
-   npm run dev
-   ```
-
-6. **Open your browser**
-   Navigate to [http://localhost:3000](http://localhost:3000)
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 s3/
-├── app/
-│   ├── api/
-│   │   ├── auth/
-│   │   │   ├── login/
-│   │   │   └── signup/
-│   │   └── protected/
-│   │       └── profile/
-│   ├── components/
-│   │   ├── modules/
-│   │   ├── AuthModal.js
-│   │   ├── Dashboard.js
-│   │   ├── LandingPage.js
-│   │   ├── Navbar.js
-│   │   ├── Sidebar.js
-│   │   └── TopNavbar.js
-│   ├── globals.css
-│   ├── layout.js
-│   └── page.js
-├── middleware.js
-├── package.json
-└── README.md
+├── app/                          # Next.js app directory
+│   ├── api/                      # API routes
+│   │   ├── auth/                 # Authentication endpoints
+│   │   ├── protected/            # Protected user endpoints
+│   │   └── resume/               # Resume processing endpoints
+│   ├── components/                # React components
+│   │   ├── modules/              # Dashboard modules
+│   │   └── ...
+│   └── ...
+├── python-service/               # Python microservice
+│   ├── main.py                   # FastAPI application
+│   ├── requirements.txt          # Python dependencies
+│   └── start.py                  # Service startup script
+└── uploads/                      # File upload directory
 ```
 
-## Authentication Flow
+## 🛠️ Installation & Setup
 
-1. **Landing Page**: Users see the beautiful landing page with feature previews
-2. **Sign Up**: New users can create accounts with email, password, name, and phone
-3. **Login**: Existing users can sign in with email and password
-4. **JWT Token**: Upon successful authentication, a JWT token is generated and stored
-5. **Protected Routes**: API routes under `/api/protected/` require valid JWT tokens
-6. **Dashboard Access**: Authenticated users can access the full dashboard
+### Prerequisites
 
-## API Endpoints
+- Node.js 18+ 
+- Python 3.8+
+- MongoDB (local or cloud)
+
+### 1. Install Dependencies
+
+```bash
+# Install Node.js dependencies
+npm install
+
+# Install Python dependencies
+cd python-service
+pip install -r requirements.txt
+python -m spacy download en_core_web_sm
+```
+
+### 2. Environment Variables
+
+Create a `.env.local` file in the root directory:
+
+```env
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret_key
+PYTHON_SERVICE_URL=http://localhost:8000
+```
+
+### 3. Start Services
+
+**Option 1: Use the batch script (Windows)**
+```bash
+start-services.bat
+```
+
+**Option 2: Manual startup**
+
+Terminal 1 (Next.js):
+```bash
+npm run dev
+```
+
+Terminal 2 (Python Service):
+```bash
+cd python-service
+python start.py
+```
+
+## 🔧 API Endpoints
 
 ### Authentication
 - `POST /api/auth/signup` - User registration
 - `POST /api/auth/login` - User login
-
-### Protected Routes (require JWT token)
 - `GET /api/protected/profile` - Get user profile
-- `PUT /api/protected/profile` - Update user profile
 
-## Database Schema
+### Resume Processing
+- `POST /api/resume/upload` - Upload and analyze resume
+- `GET /api/resume/history` - Get user's resume history
 
-### Users Collection
-```javascript
-{
-  _id: ObjectId,
-  name: String,
-  email: String,
-  password: String (hashed),
-  phone: String,
-  role: String (default: 'Student'),
-  createdAt: Date,
-  updatedAt: Date,
-  lastLogin: Date,
-  profile: {
-    avatar: String,
-    bio: String,
-    skills: Array,
-    experience: Array,
-    education: Array
-  }
-}
+### Python Service
+- `POST /parse-resume` - Parse resume file
+- `GET /health` - Health check
+
+## 📊 Resume Analysis Features
+
+### Skills Extraction
+- Identifies technical skills from resume text
+- Supports 50+ common programming languages and frameworks
+- Uses spaCy NLP for intelligent skill recognition
+
+### ATS Scoring
+- Calculates compatibility with Applicant Tracking Systems
+- Evaluates contact information, skills, experience, and education
+- Provides actionable improvement suggestions
+
+### Analysis Results
+- **Skills Found**: Technical competencies identified
+- **Missing Skills**: Recommended skills to add
+- **Experience**: Work experience summary
+- **Education**: Educational background
+- **Strengths**: Resume strengths identified
+- **Suggestions**: Improvement recommendations
+
+## 🎯 Usage
+
+1. **Sign Up/Login**: Create an account or login
+2. **Upload Resume**: Go to Resume Analysis module
+3. **View Results**: See detailed analysis and suggestions
+4. **Dashboard**: View stats and recent activities
+5. **Improve**: Use suggestions to enhance your resume
+
+## 🔒 Security Features
+
+- JWT-based authentication
+- File type validation
+- File size limits (5MB)
+- Secure file storage
+- CORS protection
+
+## 🚀 Deployment
+
+### Frontend (Vercel/Netlify)
+```bash
+npm run build
+npm start
 ```
 
-## Deployment
+### Python Service (Docker)
+```dockerfile
+FROM python:3.9-slim
+WORKDIR /app
+COPY python-service/ .
+RUN pip install -r requirements.txt
+RUN python -m spacy download en_core_web_sm
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
 
-### Vercel (Recommended)
-1. Push your code to GitHub
-2. Connect your repository to Vercel
-3. Add environment variables in Vercel dashboard
-4. Deploy
+### Database
+- MongoDB Atlas (recommended for production)
+- Local MongoDB for development
 
-### Other Platforms
-- Set up MongoDB Atlas for database
-- Configure environment variables
-- Build and deploy using your preferred platform
+## 🧪 Testing
 
-## Environment Variables
+```bash
+# Test Next.js application
+npm run dev
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `MONGODB_URI` | MongoDB connection string | Yes |
-| `JWT_SECRET` | Secret key for JWT tokens | Yes |
-| `NEXTAUTH_URL` | Your application URL | Yes |
-| `NEXTAUTH_SECRET` | NextAuth secret key | Yes |
+# Test Python service
+cd python-service
+python -m pytest
 
-## Contributing
+# Test API endpoints
+curl -X POST http://localhost:8000/health
+```
+
+## 📈 Performance
+
+- **File Processing**: Supports files up to 5MB
+- **Response Time**: < 3 seconds for typical resume analysis
+- **Concurrent Users**: Supports multiple simultaneous uploads
+- **Scalability**: Microservice architecture for easy scaling
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Python Service Not Starting**
+   ```bash
+   cd python-service
+   pip install -r requirements.txt
+   python -m spacy download en_core_web_sm
+   ```
+
+2. **MongoDB Connection Issues**
+   - Check connection string in `.env.local`
+   - Ensure MongoDB is running
+   - Verify network access
+
+3. **File Upload Fails**
+   - Check file size (must be < 5MB)
+   - Verify file format (PDF, DOC, DOCX only)
+   - Ensure uploads directory exists
+
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -166,14 +214,13 @@ s3/
 4. Test thoroughly
 5. Submit a pull request
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License.
 
-## Support
+## 🙏 Acknowledgments
 
-For support and questions, please open an issue on GitHub or contact the development team.
-
----
-
-**Built with ❤️ for students pursuing their career dreams**
+- spaCy for NLP processing
+- pdfplumber for PDF text extraction
+- FastAPI for Python microservice
+- Next.js for frontend framework
