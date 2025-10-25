@@ -70,7 +70,7 @@ export default function Dashboard({ onLogout }) {
 
     switch (activeModule) {
       case 'dashboard':
-        return <DashboardHome user={user} />;
+        return <DashboardHome user={user} onNavigate={setActiveModule} />;
       case 'resume-analysis':
         return <ResumeAnalysis user={user} />;
       case 'resume-scorecard':
@@ -86,7 +86,7 @@ export default function Dashboard({ onLogout }) {
       case 'settings':
         return <Settings user={user} />;
       default:
-        return <DashboardHome user={user} />;
+        return <DashboardHome user={user} onNavigate={setActiveModule} />;
     }
   };
 

@@ -11,7 +11,15 @@ import {
   CheckCircle,
   ArrowRight,
   Star,
-  Lock
+  Lock,
+  Sparkles,
+  Zap,
+  Target,
+  Award,
+  Github,
+  Twitter,
+  Linkedin,
+  Mail
 } from 'lucide-react';
 import AuthModal from './AuthModal';
 
@@ -80,103 +88,150 @@ export default function LandingPage({ onLogin }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="landing-page-modern">
+      {/* Animated Background */}
+      <div className="landing-bg-modern">
+        <div className="gradient-orb orb-1"></div>
+        <div className="gradient-orb orb-2"></div>
+        <div className="gradient-orb orb-3"></div>
+      </div>
+
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex justify-between items-center bg-white/90 backdrop-blur-md border-b border-gray-200">
-        <div className="flex items-center space-x-2">
-          <Rocket className="w-8 h-8 text-blue-600" />
-          <span className="text-2xl font-bold text-gray-800">S3 Dashboard</span>
-        </div>
-        <div className="flex space-x-4">
-          <button
-            onClick={() => handleAuthClick('login')}
-            className="px-6 py-2 text-blue-600 hover:text-blue-700 font-medium transition-colors"
-          >
-            Login
-          </button>
-          <button
-            onClick={() => handleAuthClick('signup')}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Sign Up
-          </button>
+      <nav className="landing-nav-modern">
+        <div className="nav-content-modern">
+          <div className="nav-logo-modern">
+            <Rocket className="w-8 h-8 text-white" />
+            <span className="text-2xl font-bold text-white">S3 Dashboard</span>
+          </div>
+          <div className="nav-buttons-modern">
+            <button
+              onClick={() => handleAuthClick('login')}
+              className="btn-nav-login"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => handleAuthClick('signup')}
+              className="btn-nav-signup"
+            >
+              Sign Up
+            </button>
+          </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="px-6 pt-32 pb-20 text-center">
+      <section className="hero-section-landing">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
+          className="hero-content-landing"
         >
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
+          <motion.div 
+            className="hero-badge-landing"
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>AI-Powered Career Platform</span>
+          </motion.div>
+          
+          <h1 className="hero-title-landing">
             Your Smart Path to
-            <span className="text-blue-600"> Career Success</span>
-            <span className="text-4xl ml-3">🚀</span>
+            <span className="hero-gradient-text"> Career Success</span>
+            <span className="hero-emoji">🚀</span>
           </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+          
+          <p className="hero-subtitle-landing">
             Transform your career journey with AI-powered resume analysis, personalized job recommendations, 
             and expert mentorship guidance - all in one intelligent platform.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
+          
+          <div className="hero-buttons-landing">
+            <motion.button
               onClick={() => handleAuthClick('signup')}
-              className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-lg font-semibold flex items-center justify-center space-x-2"
+              className="btn-hero-primary"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               <span>Start Your Journey</span>
               <ArrowRight className="w-5 h-5" />
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               onClick={() => handleAuthClick('login')}
-              className="px-8 py-4 border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors text-lg font-semibold"
+              className="btn-hero-secondary"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              Login to Dashboard
-            </button>
+              <span>Login to Dashboard</span>
+            </motion.button>
           </div>
+          
+          <motion.div 
+            className="hero-stats-landing"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <div className="stat-item-landing">
+              <Zap className="w-5 h-5" />
+              <span>AI-Powered</span>
+            </div>
+            <div className="stat-item-landing">
+              <Target className="w-5 h-5" />
+              <span>Career Focused</span>
+            </div>
+            <div className="stat-item-landing">
+              <Award className="w-5 h-5" />
+              <span>Proven Results</span>
+            </div>
+          </motion.div>
         </motion.div>
       </section>
 
       {/* Features Preview */}
-      <section className="px-6 py-20 bg-white">
-        <div className="max-w-6xl mx-auto">
+      <section className="features-section-landing">
+        <div className="features-container-landing">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="features-header-landing"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="features-title-landing">
               Powerful Features to Accelerate Your Career
             </h2>
-            <p className="text-xl text-gray-600">
+            <p className="features-subtitle-landing">
               Discover what makes S3 Dashboard the ultimate career development platform
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="features-grid-landing">
             {features.map((feature, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className="relative group"
+                className="feature-card-landing"
+                whileHover={{ y: -8, scale: 1.02 }}
               >
-                <div className="bg-gray-50 rounded-xl p-6 h-full border-2 border-gray-200 group-hover:border-blue-300 transition-all duration-300">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-blue-600">
+                <div className="feature-card-content">
+                  <div className="feature-icon-container">
+                    <div className="feature-icon-landing">
                       {feature.icon}
                     </div>
-                    <span className="text-2xl">{feature.emoji}</span>
+                    <span className="feature-emoji">{feature.emoji}</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  <h3 className="feature-title-landing">
                     {feature.title}
                   </h3>
-                  <p className="text-gray-600 mb-4">
+                  <p className="feature-description-landing">
                     {feature.description}
                   </p>
-                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <div className="feature-lock-badge">
                     <Lock className="w-4 h-4" />
                     <span>Login to Access</span>
                   </div>
@@ -188,27 +243,28 @@ export default function LandingPage({ onLogin }) {
       </section>
 
       {/* Why S3 Dashboard */}
-      <section className="px-6 py-20 bg-gradient-to-r from-blue-50 to-indigo-50">
-        <div className="max-w-4xl mx-auto text-center">
+      <section className="why-section-landing">
+        <div className="why-container-landing">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-8">
+            <h2 className="why-title-landing">
               Why Choose S3 Dashboard?
             </h2>
-            <div className="grid md:grid-cols-2 gap-8">
+            <div className="benefits-grid-landing">
               {benefits.map((benefit, index) => (
                 <motion.div
                   key={index}
                   initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
-                  className="flex items-start space-x-3 text-left"
+                  className="benefit-item-landing"
+                  whileHover={{ x: 4 }}
                 >
-                  <CheckCircle className="w-6 h-6 text-green-500 mt-1 flex-shrink-0" />
-                  <p className="text-lg text-gray-700">{benefit}</p>
+                  <CheckCircle className="benefit-icon-landing" />
+                  <p className="benefit-text-landing">{benefit}</p>
                 </motion.div>
               ))}
             </div>
@@ -217,88 +273,116 @@ export default function LandingPage({ onLogin }) {
       </section>
 
       {/* Call to Action */}
-      <section className="px-6 py-20 bg-blue-600">
-        <div className="max-w-4xl mx-auto text-center">
+      <section className="cta-section-landing">
+        <div className="cta-container-landing">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             whileInView={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8 }}
+            className="cta-content-landing"
           >
-            <h2 className="text-4xl font-bold text-white mb-6">
+            <Sparkles className="cta-sparkle-icon" />
+            <h2 className="cta-title-landing">
               Ready to Transform Your Career?
             </h2>
-            <p className="text-xl text-blue-100 mb-8">
+            <p className="cta-subtitle-landing">
               Join thousands of students who have already accelerated their career journey
             </p>
-            <button
+            <motion.button
               onClick={() => handleAuthClick('signup')}
-              className="px-10 py-4 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition-colors text-xl font-semibold flex items-center mx-auto space-x-2"
+              className="btn-cta-landing"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               <span>Start Your Journey</span>
               <ArrowRight className="w-6 h-6" />
-            </button>
+            </motion.button>
           </motion.div>
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="px-6 py-20 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              What Our Students Say
-            </h2>
-            <p className="text-xl text-gray-600">
-              Real stories from students who transformed their careers
+      {/* Modern Footer */}
+      <footer className="footer-modern-landing">
+        <div className="footer-container-landing">
+          {/* Footer Top */}
+          <div className="footer-top-landing">
+            <div className="footer-brand-landing">
+              <div className="footer-logo-landing">
+                <Rocket className="w-10 h-10" />
+                <span className="footer-brand-name">S3 Dashboard</span>
+              </div>
+              <p className="footer-tagline-landing">
+                Your smart path to career success. Transform your future with AI-powered tools and expert guidance.
+              </p>
+              <div className="footer-social-landing">
+                <motion.a href="#" className="social-link-landing" whileHover={{ scale: 1.1, y: -2 }}>
+                  <Github className="w-5 h-5" />
+                </motion.a>
+                <motion.a href="#" className="social-link-landing" whileHover={{ scale: 1.1, y: -2 }}>
+                  <Twitter className="w-5 h-5" />
+                </motion.a>
+                <motion.a href="#" className="social-link-landing" whileHover={{ scale: 1.1, y: -2 }}>
+                  <Linkedin className="w-5 h-5" />
+                </motion.a>
+                <motion.a href="#" className="social-link-landing" whileHover={{ scale: 1.1, y: -2 }}>
+                  <Mail className="w-5 h-5" />
+                </motion.a>
+              </div>
+            </div>
+            
+            <div className="footer-links-landing">
+              <div className="footer-column-landing">
+                <h4 className="footer-heading-landing">Product</h4>
+                <ul className="footer-list-landing">
+                  <li><a href="#features">Features</a></li>
+                  <li><a href="#pricing">Pricing</a></li>
+                  <li><a href="#security">Security</a></li>
+                  <li><a href="#updates">Updates</a></li>
+                </ul>
+              </div>
+              
+              <div className="footer-column-landing">
+                <h4 className="footer-heading-landing">Company</h4>
+                <ul className="footer-list-landing">
+                  <li><a href="#about">About Us</a></li>
+                  <li><a href="#careers">Careers</a></li>
+                  <li><a href="#blog">Blog</a></li>
+                  <li><a href="#press">Press Kit</a></li>
+                </ul>
+              </div>
+              
+              <div className="footer-column-landing">
+                <h4 className="footer-heading-landing">Resources</h4>
+                <ul className="footer-list-landing">
+                  <li><a href="#docs">Documentation</a></li>
+                  <li><a href="#help">Help Center</a></li>
+                  <li><a href="#api">API</a></li>
+                  <li><a href="#status">Status</a></li>
+                </ul>
+              </div>
+              
+              <div className="footer-column-landing">
+                <h4 className="footer-heading-landing">Legal</h4>
+                <ul className="footer-list-landing">
+                  <li><a href="#privacy">Privacy Policy</a></li>
+                  <li><a href="#terms">Terms of Service</a></li>
+                  <li><a href="#cookies">Cookie Policy</a></li>
+                  <li><a href="#licenses">Licenses</a></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          
+          {/* Footer Bottom */}
+          <div className="footer-bottom-landing">
+            <p className="footer-copyright-landing">
+              © 2024 S3 Dashboard. All rights reserved. Made with ❤️ for students worldwide.
             </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                className="bg-gray-50 rounded-xl p-6 border border-gray-200"
-              >
-                <div className="flex items-center mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <p className="text-gray-700 mb-4 italic">
-                  "{testimonial.content}"
-                </p>
-                <div>
-                  <p className="font-semibold text-gray-900">{testimonial.name}</p>
-                  <p className="text-gray-600 text-sm">{testimonial.role}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="px-6 py-12 bg-gray-900 text-white">
-        <div className="max-w-6xl mx-auto text-center">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <Rocket className="w-8 h-8 text-blue-400" />
-            <span className="text-2xl font-bold">S3 Dashboard</span>
-          </div>
-          <p className="text-gray-400 mb-6">
-            Your smart path to career success
-          </p>
-          <div className="flex justify-center space-x-6 text-sm text-gray-400">
-            <span>© 2024 S3 Dashboard. All rights reserved.</span>
-            <span>Privacy Policy</span>
-            <span>Terms of Service</span>
+            <div className="footer-badges-landing">
+              <span className="footer-badge-landing">🔒 Secure</span>
+              <span className="footer-badge-landing">⚡ Fast</span>
+              <span className="footer-badge-landing">🚀 Reliable</span>
+            </div>
           </div>
         </div>
       </footer>

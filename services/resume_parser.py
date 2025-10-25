@@ -24,34 +24,84 @@ def extract_text(file_path):
         raise ValueError(f"Error reading file: {str(e)}")
 
 def extract_skills(text):
-    """Extract skills using spaCy"""
-    doc = nlp(text.lower())
+    """Extract ONLY real technical skills - STRICT filtering"""
     skills = set()
+    text_lower = text.lower()
     
-    # Common resume skills to look for
-    common_skills = {
-        'python', 'javascript', 'java', 'c++', 'c#', 'php', 'ruby', 'swift', 'kotlin',
-        'html', 'css', 'react', 'angular', 'vue', 'node.js', 'django', 'flask', 'express',
-        'sql', 'mongodb', 'postgresql', 'mysql', 'aws', 'docker', 'kubernetes', 'git',
-        'machine learning', 'artificial intelligence', 'data analysis', 'rest api', 'graphql',
-        'typescript', 'next.js', 'tailwind', 'bootstrap', 'sass', 'webpack', 'redux',
-        'spring boot', 'hibernate', 'microservices', 'agile', 'scrum', 'jira', 'jenkins',
-        'ci/cd', 'devops', 'linux', 'bash', 'powershell', 'azure', 'gcp', 'terraform',
-        'ansible', 'prometheus', 'grafana', 'elasticsearch', 'redis', 'rabbitmq', 'kafka'
+    # Comprehensive list of valid technical skills
+    valid_skills = {
+        # Programming Languages
+        'python', 'javascript', 'java', 'c++', 'c#', 'php', 'ruby', 'swift', 'kotlin', 'go', 'rust',
+        'typescript', 'scala', 'perl', 'r', 'matlab', 'dart', 'c', 'objective-c',
+        
+        # Frontend Technologies
+        'react', 'reactjs', 'react.js', 'angular', 'vue', 'vue.js', 'vuejs', 'svelte', 'ember',
+        'jquery', 'next.js', 'nextjs', 'nuxt', 'gatsby', 'html', 'html5', 'css', 'css3',
+        'sass', 'scss', 'less', 'tailwind', 'tailwindcss', 'bootstrap', 'material-ui', 'mui',
+        'webpack', 'vite', 'parcel', 'rollup', 'babel', 'redux', 'mobx', 'zustand',
+        
+        # Backend Technologies
+        'node.js', 'nodejs', 'node', 'express', 'expressjs', 'express.js', 'django', 'flask',
+        'fastapi', 'spring', 'spring boot', 'springboot', 'laravel', 'rails', 'ruby on rails',
+        'asp.net', '.net', 'dotnet', 'nestjs', 'fastify', 'koa', 'hapi',
+        
+        # Databases
+        'sql', 'mysql', 'postgresql', 'postgres', 'mongodb', 'redis', 'sqlite', 'mariadb',
+        'oracle', 'mssql', 'sql server', 'dynamodb', 'cassandra', 'couchdb', 'firebase',
+        'firestore', 'realm', 'nosql', 'elasticsearch', 'neo4j',
+        
+        # Cloud & DevOps
+        'aws', 'amazon web services', 'azure', 'gcp', 'google cloud', 'docker', 'kubernetes',
+        'k8s', 'jenkins', 'ci/cd', 'gitlab', 'github actions', 'travis ci', 'circleci',
+        'terraform', 'ansible', 'chef', 'puppet', 'vagrant', 'heroku', 'netlify', 'vercel',
+        
+        # Tools & Platforms
+        'git', 'github', 'gitlab', 'bitbucket', 'svn', 'mercurial', 'jira', 'confluence',
+        'slack', 'trello', 'asana', 'postman', 'insomnia', 'swagger', 'vscode', 'intellij',
+        'pycharm', 'webstorm', 'eclipse', 'visual studio', 'vim', 'emacs', 'sublime',
+        
+        # APIs & Protocols
+        'rest', 'restful', 'rest api', 'graphql', 'websocket', 'grpc', 'soap', 'json', 'xml',
+        'api', 'microservices', 'oauth', 'jwt', 'http', 'https', 'tcp/ip', 'websockets',
+        
+        # Testing
+        'jest', 'mocha', 'chai', 'jasmine', 'karma', 'cypress', 'selenium', 'puppeteer',
+        'playwright', 'junit', 'pytest', 'unittest', 'testng', 'rspec', 'enzyme',
+        
+        # Mobile Development
+        'react native', 'flutter', 'ios', 'android', 'xamarin', 'ionic', 'cordova',
+        'react-native', 'swift ui', 'swiftui', 'jetpack compose',
+        
+        # Data Science & AI
+        'machine learning', 'deep learning', 'artificial intelligence', 'ai', 'ml',
+        'data science', 'data analysis', 'pandas', 'numpy', 'scikit-learn', 'tensorflow',
+        'pytorch', 'keras', 'opencv', 'nlp', 'computer vision', 'data visualization',
+        
+        # Methodologies
+        'agile', 'scrum', 'kanban', 'waterfall', 'devops', 'tdd', 'bdd', 'ci/cd',
+        'continuous integration', 'continuous deployment',
+        
+        # Other Technical
+        'linux', 'unix', 'windows', 'macos', 'bash', 'powershell', 'shell scripting',
+        'regex', 'markdown', 'latex', 'nginx', 'apache', 'tomcat', 'iis',
+        'rabbitmq', 'kafka', 'activemq', 'memcached', 'varnish', 'prometheus', 'grafana'
     }
     
-    # Check for common skills
-    for skill in common_skills:
-        if skill in text.lower():
-            skills.add(skill)
+    # ONLY match skills from the whitelist
+    for skill in valid_skills:
+        if skill in text_lower:
+            # Capitalize properly for display
+            display_skill = skill.title() if skill.islower() else skill
+            if skill in ['html', 'css', 'sql', 'api', 'xml', 'json', 'jwt', 'http', 'https', 'ai', 'ml', 'nlp']:
+                display_skill = skill.upper()
+            elif skill in ['node.js', 'next.js', 'vue.js', 'react.js', 'express.js']:
+                display_skill = skill
+            elif skill in ['javascript', 'typescript']:
+                display_skill = skill.capitalize()
+            skills.add(display_skill)
     
-    # Extract noun phrases that might be skills
-    for chunk in doc.noun_chunks:
-        chunk_text = chunk.text.lower().strip()
-        if 1 < len(chunk_text.split()) <= 3:  # Single or two-word phrases
-            skills.add(chunk_text)
-    
-    return sorted(list(skills))[:30]  # Limit to 30 skills
+    # Sort and return only unique, valid skills
+    return sorted(list(skills))[:25]  # Limit to 25 skills
 
 def extract_experience(text):
     """Extract work experience information"""
