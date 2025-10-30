@@ -1,7 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
+// Lightweight chart rendering using Chart.js via react-chartjs-2
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler);
 
 export default function DashboardHome({ user, onNavigate }) {
   const [resumeData, setResumeData] = useState(null);
@@ -17,6 +31,8 @@ export default function DashboardHome({ user, onNavigate }) {
   const [upcomingTasks, setUpcomingTasks] = useState([]);
   const [lastAnalysis, setLastAnalysis] = useState(null);
   const [chartData, setChartData] = useState(null);
+  const [progressSeries, setProgressSeries] = useState([]);
+  const [aiTips, setAiTips] = useState([]);
 
   useEffect(() => {
     if (user) {
@@ -133,6 +149,20 @@ export default function DashboardHome({ user, onNavigate }) {
       } : null
     };
     setChartData(charts);
+
+    // Extract up to 3 AI tips if present
+    if (aiData) {
+      const tips = [];
+      if (Array.isArray(aiData.improvement_tips)) {
+        tips.push(...aiData.improvement_tips);
+      } else {
+        if (aiData.top_improvements) tips.push(...aiData.top_improvements);
+        if (aiData.suggestions) tips.push(...aiData.suggestions);
+      }
+      setAiTips(tips.filter(Boolean).slice(0, 3));
+    } else {
+      setAiTips([]);
+    }
   };
 
   const fetchResumeData = async () => {
@@ -156,6 +186,7 @@ export default function DashboardHome({ user, onNavigate }) {
         setResumeData(userResumes);
         updateStats(userResumes);
         updateActivities(userResumes);
+        updateProgressSeries(userResumes);
         
         // Also try to load any user-specific localStorage data
         if (user.id || user._id) {
@@ -172,6 +203,14 @@ export default function DashboardHome({ user, onNavigate }) {
               { action: 'Upload your first resume to get started', time: 'Get started', type: 'upload' }
             ]);
           }
+          // Build a minimal series from localStorage if available
+          try {
+            const ts = localStorage.getItem(`analysisTimestamp_${user.id || user._id}`);
+            const sc = localStorage.getItem(`resumeScore_${user.id || user._id}`);
+            if (ts && sc) {
+              setProgressSeries([{ x: new Date(ts), y: parseInt(sc) }]);
+            }
+          } catch {}
         }
       }
     } catch (error) {
@@ -185,6 +224,22 @@ export default function DashboardHome({ user, onNavigate }) {
     }
   };
 
+  const scoreOf = (resume) => {
+    if (typeof resume?.score === 'number') return resume.score;
+    if (typeof resume?.analysis?.atsScore === 'number') return resume.analysis.atsScore;
+    if (typeof resume?.aiOverallScore === 'number') return resume.aiOverallScore;
+    return null;
+  };
+
+  const updateProgressSeries = (resumes) => {
+    const points = (resumes || [])
+      .map(r => ({ t: new Date(r.uploadedAt || r.createdAt || r.created_at || Date.now()), s: scoreOf(r) }))
+      .filter(p => typeof p.s === 'number')
+      .sort((a, b) => a.t - b.t)
+      .map(p => ({ x: p.t, y: p.s }));
+    setProgressSeries(points);
+  };
+
   const updateStats = (resumes) => {
     if (resumes && resumes.length > 0) {
       const latestResume = resumes[0];
@@ -192,7 +247,7 @@ export default function DashboardHome({ user, onNavigate }) {
       const lastAnalysis = new Date(latestResume.uploadedAt).toLocaleDateString();
       
       setStats([
-        { title: 'Resume Score', value: `${latestResume.analysis?.atsScore || 0}%`, icon: 'fas fa-file-alt', color: 'from-blue-500 to-blue-600', bgGradient: 'from-blue-50 to-blue-100' },
+        { title: 'Resume Score', value: `${scoreOf(latestResume) || 0}%`, icon: 'fas fa-file-alt', color: 'from-blue-500 to-blue-600', bgGradient: 'from-blue-50 to-blue-100' },
         { title: 'Resumes Uploaded', value: resumes.length.toString(), icon: 'fas fa-upload', color: 'from-green-500 to-green-600', bgGradient: 'from-green-50 to-green-100' },
         { title: 'Skills Identified', value: skillsCount.toString(), icon: 'fas fa-star', color: 'from-purple-500 to-purple-600', bgGradient: 'from-purple-50 to-purple-100' },
         { title: 'Last Analysis', value: lastAnalysis, icon: 'fas fa-clock', color: 'from-orange-500 to-orange-600', bgGradient: 'from-orange-50 to-orange-100' },
@@ -202,7 +257,7 @@ export default function DashboardHome({ user, onNavigate }) {
       if (latestResume.analysis) {
         setLastAnalysis({
           data: latestResume.analysis,
-          score: latestResume.analysis.atsScore || 0,
+          score: scoreOf(latestResume) || 0,
           aiAnalysis: latestResume.aiAnalysis || null,
           timestamp: latestResume.uploadedAt || new Date().toISOString()
         });
@@ -247,6 +302,43 @@ export default function DashboardHome({ user, onNavigate }) {
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
     return `${Math.floor(diffInSeconds / 86400)} days ago`;
   };
+
+  // Build Chart.js inputs from series
+  const progressChart = useMemo(() => {
+    if (!progressSeries || progressSeries.length === 0) return null;
+    const labels = progressSeries.map(p => new Date(p.x).toLocaleDateString());
+    const data = progressSeries.map(p => p.y);
+    return {
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Resume Score',
+            data,
+            fill: true,
+            tension: 0.35,
+            borderColor: '#60a5fa',
+            backgroundColor: 'rgba(96,165,250,0.15)',
+            pointBackgroundColor: '#93c5fd',
+            pointBorderColor: '#1d4ed8',
+            pointRadius: 3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { mode: 'index', intersect: false }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { min: 0, max: 100, ticks: { stepSize: 20 } }
+        }
+      }
+    };
+  }, [progressSeries]);
 
   // Get user's first name for personalized greeting
   const firstName = user?.name ? user.name.split(' ')[0] : 'Student';
@@ -354,7 +446,7 @@ export default function DashboardHome({ user, onNavigate }) {
           </div>
         </motion.div>
 
-          {/* Resume Insights */}
+          {/* ATS Result Card */}
         <motion.div 
           className="content-card-modern glass-card-dark"
           initial={{ opacity: 0, x: -20 }}
@@ -363,8 +455,8 @@ export default function DashboardHome({ user, onNavigate }) {
         >
           <div className="card-header-modern">
               <h2 className="card-title-modern">
-                <i className="fas fa-lightbulb"></i>
-                Resume Insights
+                <i className="fas fa-bullseye"></i>
+                ATS Result
               </h2>
               <button className="view-all-btn-modern" onClick={() => onNavigate && onNavigate('resume-analysis')}>
                 Analyze
@@ -377,22 +469,22 @@ export default function DashboardHome({ user, onNavigate }) {
                 <div className="insight-item" onClick={() => onNavigate && onNavigate('resume-analysis')}>
                   <div className="insight-icon"><i className="fas fa-trophy" style={{color: '#fbbf24'}}></i></div>
                   <div className="insight-content">
-                    <div className="insight-text"><strong>Current Resume Score</strong></div>
+                    <div className="insight-text"><strong>Total Score</strong></div>
                     <div className="insight-time">{lastAnalysis.score}% - {lastAnalysis.score >= 70 ? 'Good' : lastAnalysis.score >= 50 ? 'Average' : 'Needs Improvement'}</div>
                   </div>
                 </div>
                 <div className="insight-item" onClick={() => onNavigate && onNavigate('resume-analysis')}>
-                  <div className="insight-icon"><i className="fas fa-lightbulb" style={{color: '#818cf8'}}></i></div>
+                  <div className="insight-icon"><i className="fas fa-thumbs-up" style={{color: '#34d399'}}></i></div>
                   <div className="insight-content">
-                    <div className="insight-text"><strong>AI Suggestions Available</strong></div>
-                    <div className="insight-time">Click for improvement tips</div>
+                    <div className="insight-text"><strong>Strengths</strong></div>
+                    <div className="insight-time">{`Skills coverage ${chartData?.sections?.skills ?? 0}% • Education ${chartData?.sections?.education ?? 0}%`}</div>
                   </div>
                 </div>
                 <div className="insight-item" onClick={() => onNavigate && onNavigate('resume-analysis')}>
-                  <div className="insight-icon"><i className="fas fa-check-circle" style={{color: '#34d399'}}></i></div>
+                  <div className="insight-icon"><i className="fas fa-exclamation-triangle" style={{color: '#f59e0b'}}></i></div>
                   <div className="insight-content">
-                    <div className="insight-text"><strong>{lastAnalysis.data?.skills?.length || 0} Skills Detected</strong></div>
-                    <div className="insight-time">{lastAnalysis.data?.experience?.length || 0} experience, {lastAnalysis.data?.education?.length || 0} education</div>
+                    <div className="insight-text"><strong>Weak Areas</strong></div>
+                    <div className="insight-time">{`Contact ${chartData?.sections?.contact ?? 0}% • Experience ${chartData?.sections?.experience ?? 0}%`}</div>
                   </div>
                 </div>
               </>
@@ -405,6 +497,26 @@ export default function DashboardHome({ user, onNavigate }) {
             )}
           </div>
         </motion.div>
+
+        {/* Progress Over Time - Line Chart */}
+        {progressChart && (
+          <motion.div 
+            className="content-card-modern glass-card-dark"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.62 }}
+          >
+            <div className="card-header-modern">
+              <h2 className="card-title-modern">
+                <i className="fas fa-chart-line"></i>
+                Your Resume Progress Over Time
+              </h2>
+            </div>
+            <div style={{ height: 260 }}>
+              <Line data={progressChart.data} options={progressChart.options} />
+            </div>
+          </motion.div>
+        )}
 
           {/* Last Analysis Details - NEW SECTION */}
           {lastAnalysis && chartData && (
@@ -545,6 +657,36 @@ export default function DashboardHome({ user, onNavigate }) {
 
         {/* Right Column */}
         <div className="dashboard-section-modern">
+          {/* Upload New Resume */}
+          <motion.div 
+            className="content-card-modern glass-card-dark"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.35 }}
+          >
+            <div className="card-header-modern">
+              <h2 className="card-title-modern">
+                <i className="fas fa-upload"></i>
+                Upload New Resume
+              </h2>
+            </div>
+            <div className="no-resumes" style={{padding: '1.5rem'}}>
+              <motion.div
+                initial={{ scale: 1 }}
+                animate={{ scale: [1, 1.06, 1] }}
+                transition={{ repeat: Infinity, duration: 2.2 }}
+                style={{ display: 'inline-flex' }}
+              >
+                <i className="fas fa-cloud-upload-alt" style={{ color: '#a5b4fc' }}></i>
+              </motion.div>
+              <p>Drop or select a resume to analyze</p>
+              <button className="btn-primary" onClick={() => onNavigate && onNavigate('resume-analysis')}>
+                <i className="fas fa-file-import"></i>
+                Choose File
+              </button>
+            </div>
+          </motion.div>
+
           {/* Resume Strength Analyzer */}
           <motion.div 
             className="content-card-modern glass-card-dark"
@@ -555,7 +697,7 @@ export default function DashboardHome({ user, onNavigate }) {
             <div className="card-header-modern">
               <h2 className="card-title-modern">
                 <i className="fas fa-chart-pie"></i>
-                Resume Strength
+                Skill Graph
               </h2>
             </div>
             <div className="resume-strength-section">
@@ -630,7 +772,7 @@ export default function DashboardHome({ user, onNavigate }) {
               ) : (
                 <div className="no-resumes">
                   <i className="fas fa-chart-pie"></i>
-                  <p>Upload a resume to see strength analysis</p>
+                  <p>Upload a resume to see skill graph</p>
                   <button className="btn-primary" onClick={() => onNavigate && onNavigate('resume-analysis')}>
                     <i className="fas fa-upload"></i>
                     Upload Resume
@@ -640,7 +782,7 @@ export default function DashboardHome({ user, onNavigate }) {
         </div>
       </motion.div>
 
-      {/* Quick Actions */}
+      {/* AI Suggestions */}
           <motion.div 
             className="content-card-modern glass-card-dark"
             initial={{ opacity: 0, x: 20 }}
@@ -649,73 +791,85 @@ export default function DashboardHome({ user, onNavigate }) {
           >
             <div className="card-header-modern">
               <h2 className="card-title-modern">
-                <i className="fas fa-bolt"></i>
-                Quick Actions
+                <i className="fas fa-lightbulb"></i>
+                AI Suggestions
               </h2>
             </div>
-        <div className="actions-grid">
-              {lastAnalysis && (
-                <motion.button 
-                  className="action-btn modern-action-btn" 
-                  onClick={() => onNavigate && onNavigate('resume-analysis')}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  style={{
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    border: '1px solid rgba(16, 185, 129, 0.3)'
-                  }}
-                >
-                  <div className="action-icon bg-gradient-to-br from-emerald-500 to-emerald-600">
-                    <i className="fas fa-eye"></i>
+            <div className="insights-list">
+              {aiTips && aiTips.length > 0 ? (
+                aiTips.map((tip, idx) => (
+                  <div key={idx} className="insight-item">
+                    <div className="insight-icon"><i className="fas fa-magic" style={{color: '#a78bfa'}}></i></div>
+                    <div className="insight-content">
+                      <div className="insight-text"><strong>{tip.title || `Tip ${idx+1}`}</strong></div>
+                      <div className="insight-time">{tip.detail || tip.text || tip}</div>
+                    </div>
                   </div>
-                  <span>View My Resume</span>
-                </motion.button>
+                ))
+              ) : (
+                <>
+                  <div className="insight-item">
+                    <div className="insight-icon"><i className="fas fa-magic" style={{color: '#a78bfa'}}></i></div>
+                    <div className="insight-content">
+                      <div className="insight-text"><strong>Quantify achievements</strong></div>
+                      <div className="insight-time">Add metrics (%, $, #) to experience bullets</div>
+                    </div>
+                  </div>
+                  <div className="insight-item">
+                    <div className="insight-icon"><i className="fas fa-magic" style={{color: '#a78bfa'}}></i></div>
+                    <div className="insight-content">
+                      <div className="insight-text"><strong>Match keywords</strong></div>
+                      <div className="insight-time">Align skills to target job description terms</div>
+                    </div>
+                  </div>
+                  <div className="insight-item">
+                    <div className="insight-icon"><i className="fas fa-magic" style={{color: '#a78bfa'}}></i></div>
+                    <div className="insight-content">
+                      <div className="insight-text"><strong>Improve formatting</strong></div>
+                      <div className="insight-time">Use consistent headings and bullet indentation</div>
+                    </div>
+                  </div>
+                </>
               )}
-              <motion.button 
-                className="action-btn modern-action-btn" 
-                onClick={() => onNavigate && onNavigate('resume-analysis')}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <div className="action-icon bg-gradient-to-br from-blue-500 to-blue-600">
-                  <i className="fas fa-upload"></i>
-                </div>
-                <span>{lastAnalysis ? 'Analyze New Resume' : 'Upload Resume'}</span>
-          </motion.button>
-              <motion.button 
-                className="action-btn modern-action-btn" 
-                onClick={() => onNavigate && onNavigate('job-recommendations')}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <div className="action-icon bg-gradient-to-br from-green-500 to-green-600">
-                  <i className="fas fa-search"></i>
-                </div>
-                <span>Find Jobs</span>
-          </motion.button>
-              <motion.button 
-                className="action-btn modern-action-btn" 
-                onClick={() => onNavigate && onNavigate('mentor-connect')}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <div className="action-icon bg-gradient-to-br from-purple-500 to-purple-600">
-                  <i className="fas fa-calendar"></i>
-                </div>
-                <span>Schedule Session</span>
-          </motion.button>
-              <motion.button 
-                className="action-btn modern-action-btn" 
-                onClick={() => onNavigate && onNavigate('ai-assistant')}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <div className="action-icon bg-gradient-to-br from-pink-500 to-pink-600">
-                  <i className="fas fa-robot"></i>
-                </div>
-                <span>Ask AI</span>
-          </motion.button>
             </div>
+          </motion.div>
+
+      {/* Recent Uploads */}
+          <motion.div 
+            className="content-card-modern glass-card-dark"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.55 }}
+          >
+            <div className="card-header-modern">
+              <h2 className="card-title-modern">
+                <i className="fas fa-history"></i>
+                Recent Uploads
+              </h2>
+            </div>
+        <div className="activities-list">
+          {Array.isArray(resumeData) && resumeData.length > 0 ? (
+            resumeData.slice(0, 5).map((resume, idx) => (
+              <div key={idx} className="activity-item">
+                <div className="activity-icon resume">
+                  <i className="fas fa-file-pdf"></i>
+                </div>
+                <div className="activity-content">
+                  <div className="activity-text">{resume.fileName || 'Resume.pdf'}</div>
+                  <div className="activity-time">{new Date(resume.uploadedAt).toLocaleString()}</div>
+                </div>
+                {typeof resume?.analysis?.atsScore === 'number' && (
+                  <div className="activity-score">{resume.analysis.atsScore}%</div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="no-resumes" style={{padding: '1.5rem'}}>
+              <i className="fas fa-inbox"></i>
+              <p>No uploads yet</p>
+            </div>
+          )}
+        </div>
           </motion.div>
         </div>
       </div>

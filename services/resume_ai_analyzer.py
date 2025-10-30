@@ -34,8 +34,8 @@ def analyze_resume_with_ai(resume_data, job_description=None):
         # Configure Gemini
         genai.configure(api_key=api_key)
         
-        # Use Gemini 2.5 Flash - stable, free model
-        model = genai.GenerativeModel('models/gemini-2.5-flash')
+        # Use Gemini 1.5 Flash - stable, reliable model
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
         
         # Prepare resume summary
         resume_summary = f"""
@@ -50,56 +50,71 @@ WORD COUNT: {resume_data.get('word_count', 0)}
 {f"TARGET JOB DESCRIPTION: {job_description}" if job_description else ""}
 """
         
-        # Create detailed prompt for AI analysis
-        prompt = f"""You are an expert resume reviewer and career coach. Analyze this resume and provide detailed, actionable feedback.
+        # Create STRICT, CRITICAL prompt for realistic AI analysis
+        prompt = f"""You are a HIGHLY CRITICAL professional resume reviewer with 15+ years of experience. You have seen thousands of resumes and have VERY HIGH STANDARDS. Most resumes you review score between 40-70%. Only exceptional resumes score above 80%.
+
+**CRITICAL INSTRUCTIONS:**
+- Be BRUTALLY HONEST and REALISTIC in your assessment
+- DO NOT be generous with scores - most resumes have significant flaws
+- ONLY extract and reference skills that are EXPLICITLY listed in the Skills section
+- If the resume is weak, say so directly with a low score (30-50%)
+- If the resume is average, give it 50-65%
+- Only excellent, well-crafted resumes should get 70%+
+- A perfect 90-100% resume is EXTREMELY rare
 
 {resume_summary}
 
-Please provide a comprehensive analysis in the following JSON format:
+**ANALYZE THIS RESUME WITH STRICT STANDARDS:**
+
+Provide a comprehensive, HONEST analysis in JSON format:
 
 {{
-  "overall_score": <number 0-100>,
+  "overall_score": <number 0-100, be REALISTIC - most resumes are 45-65%>,
   "score_breakdown": {{
-    "content_quality": <number 0-100>,
-    "ats_optimization": <number 0-100>,
-    "skills_relevance": <number 0-100>,
-    "experience_presentation": <number 0-100>,
-    "formatting": <number 0-100>
+    "content_quality": <0-100, check for quantifiable achievements, action verbs>,
+    "ats_optimization": <0-100, check format, keywords, standard sections>,
+    "skills_relevance": <0-100, based ONLY on skills explicitly listed>,
+    "experience_presentation": <0-100, check for impact, metrics, clarity>,
+    "formatting": <0-100, check structure, readability, professionalism>
   }},
   "strengths": [
-    "List 3-5 strong points about this resume"
+    "List 2-3 genuine strong points (be honest, if there are none, say 'Limited strengths identified')"
   ],
   "weaknesses": [
-    "List 3-5 areas that need improvement"
+    "List 4-6 CRITICAL weaknesses that hurt this resume (be specific and harsh)"
   ],
   "suggestions": [
     {{
-      "category": "Skills",
-      "priority": "high",
-      "suggestion": "Specific actionable suggestion",
-      "reason": "Why this matters"
+      "category": "Skills/Experience/Format/Content",
+      "priority": "high/medium/low",
+      "suggestion": "Specific, actionable fix",
+      "reason": "Direct impact on job prospects"
     }}
   ],
   "missing_skills": [
-    "List skills commonly expected but missing"
+    "Skills that should be added based on current industry standards"
   ],
   "ats_issues": [
-    "List any ATS compatibility issues"
+    "Specific ATS problems that will get this resume rejected"
   ],
   "keyword_recommendations": [
-    "Keywords to add for better visibility"
+    "Critical keywords missing from the resume"
   ],
   "action_items": [
-    "Prioritized list of immediate actions to take"
+    "Top 5 immediate actions to improve this resume, prioritized by impact"
   ]
 }}
 
-Focus on:
-1. ATS compatibility (formatting, keywords, sections)
-2. Skills gap analysis (what's missing for modern tech roles)
-3. Experience presentation (quantifiable achievements, action verbs)
-4. Overall professionalism and clarity
-5. Specific improvements with examples
+**SCORING GUIDELINES (FOLLOW STRICTLY):**
+- 0-30%: Severely flawed, missing critical sections
+- 31-50%: Below average, needs major improvements
+- 51-65%: Average resume with notable gaps
+- 66-75%: Good resume with minor improvements needed
+- 76-85%: Very good, professional resume
+- 86-95%: Excellent, standout resume
+- 96-100%: Perfect (extremely rare)
+
+**Remember:** Be CRITICAL, HONEST, and HELPFUL. A realistic low score with actionable feedback is more valuable than false praise.
 
 Provide ONLY the JSON response, no additional text."""
 
@@ -140,7 +155,7 @@ Provide ONLY the JSON response, no additional text."""
 
 def calculate_basic_score(resume_data):
     """
-    Calculate a basic score without AI (fallback)
+    Calculate a REALISTIC basic score without AI (fallback) - STRICT evaluation
     """
     score = 0
     breakdown = {
@@ -151,61 +166,94 @@ def calculate_basic_score(resume_data):
         "formatting": 0
     }
     
-    # Skills scoring (0-20 points)
+    # Skills scoring (0-20 points) - STRICT
     skills_count = len(resume_data.get('skills', []))
-    if skills_count >= 10:
-        breakdown["skills_relevance"] = 100
-        score += 20
+    if skills_count >= 12:
+        breakdown["skills_relevance"] = 80
+        score += 18
+    elif skills_count >= 8:
+        breakdown["skills_relevance"] = 65
+        score += 13
     elif skills_count >= 5:
-        breakdown["skills_relevance"] = 70
-        score += 14
+        breakdown["skills_relevance"] = 50
+        score += 10
+    elif skills_count >= 3:
+        breakdown["skills_relevance"] = 35
+        score += 7
     else:
-        breakdown["skills_relevance"] = 40
-        score += 8
+        breakdown["skills_relevance"] = 20
+        score += 4
     
-    # Experience scoring (0-30 points)
+    # Experience scoring (0-30 points) - STRICT
     experience = resume_data.get('experience', [])
-    if experience and not experience[0].startswith('No work experience'):
-        breakdown["experience_presentation"] = 85
-        score += 30
-    else:
-        breakdown["experience_presentation"] = 20
-        score += 6
+    exp_count = len([e for e in experience if not e.startswith('No work experience') and len(e) > 30])
     
-    # Education scoring (0-20 points)
-    education = resume_data.get('education', [])
-    if education and not education[0].startswith('No education'):
-        breakdown["content_quality"] = 80
+    if exp_count >= 4:
+        breakdown["experience_presentation"] = 75
+        score += 23
+    elif exp_count >= 3:
+        breakdown["experience_presentation"] = 65
         score += 20
+    elif exp_count >= 2:
+        breakdown["experience_presentation"] = 50
+        score += 15
+    elif exp_count >= 1:
+        breakdown["experience_presentation"] = 35
+        score += 10
     else:
-        breakdown["content_quality"] = 30
-        score += 6
+        breakdown["experience_presentation"] = 15
+        score += 5
+    
+    # Education scoring (0-15 points) - STRICT
+    education = resume_data.get('education', [])
+    edu_count = len([e for e in education if not e.startswith('No education') and len(e) > 20])
+    
+    if edu_count >= 2:
+        breakdown["content_quality"] = 70
+        score += 15
+    elif edu_count >= 1:
+        breakdown["content_quality"] = 50
+        score += 10
+    else:
+        breakdown["content_quality"] = 25
+        score += 5
     
     # Contact info scoring (0-10 points)
     contact = resume_data.get('contact', {})
-    if contact.get('emails') or contact.get('phones'):
-        breakdown["ats_optimization"] = 90
+    if contact.get('emails') and contact.get('phones'):
+        breakdown["ats_optimization"] = 70
         score += 10
-    else:
+    elif contact.get('emails') or contact.get('phones'):
         breakdown["ats_optimization"] = 40
-        score += 4
-    
-    # Word count scoring (0-20 points)
-    word_count = resume_data.get('word_count', 0)
-    if 300 <= word_count <= 800:
-        breakdown["formatting"] = 90
-        score += 20
-    elif 200 <= word_count <= 1000:
-        breakdown["formatting"] = 70
-        score += 14
+        score += 5
     else:
-        breakdown["formatting"] = 50
-        score += 10
+        breakdown["ats_optimization"] = 20
+        score += 2
+    
+    # Word count scoring (0-15 points) - STRICT
+    word_count = resume_data.get('word_count', 0)
+    if 400 <= word_count <= 800:
+        breakdown["formatting"] = 75
+        score += 15
+    elif 300 <= word_count <= 1000:
+        breakdown["formatting"] = 60
+        score += 12
+    elif 200 <= word_count:
+        breakdown["formatting"] = 45
+        score += 9
+    else:
+        breakdown["formatting"] = 30
+        score += 5
+    
+    # Apply penalty for overall weak resume
+    if skills_count < 5 and exp_count < 2:
+        score = max(20, score - 10)  # Significant penalty
     
     return {
         "overall_score": min(score, 100),
         "score_breakdown": breakdown,
-        "method": "basic_calculation"
+        "method": "basic_calculation",
+        "note": "This is a fallback score. AI analysis unavailable."
     }
 
 def main():

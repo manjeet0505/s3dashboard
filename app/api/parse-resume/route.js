@@ -54,10 +54,15 @@ export async function POST(request) {
     await writeFile(tempPath, buffer);
 
     try {
-      // Call Python script
-      const pythonScript = path.join(process.cwd(), 'services', 'resume_parser.py');
+      // Call Python script (configurable path and binary)
+      const configuredScript = process.env.PYTHON_PARSER_SCRIPT;
+      const defaultScript = path.join(process.cwd(), 'services', 'resume_parser.py');
+      const pythonScript = configuredScript && configuredScript.trim().length > 0 ? configuredScript : defaultScript;
+      const pythonBinary = process.env.PYTHON_BIN || 'python';
       
-      const pythonProcess = spawn('python', [pythonScript, tempPath]);
+      const pythonProcess = spawn(pythonBinary, [pythonScript, tempPath], {
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
 
       let result = '';
       let error = '';

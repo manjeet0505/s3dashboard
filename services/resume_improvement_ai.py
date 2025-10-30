@@ -8,6 +8,7 @@ except ImportError:
     print(json.dumps({"error": "google-generativeai not installed"}))
     sys.exit(1)
 
+
 def generate_improvement_suggestions(resume_data):
     """
     Generate detailed resume improvement suggestions using Gemini AI
@@ -19,7 +20,7 @@ def generate_improvement_suggestions(resume_data):
     
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('models/gemini-2.0-flash-exp')
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
         
         # Prepare resume context
         skills = ', '.join(resume_data.get('skills', [])[:30])
@@ -27,76 +28,64 @@ def generate_improvement_suggestions(resume_data):
         education = ' | '.join(resume_data.get('education', [])[:3])
         current_score = resume_data.get('current_score', 0)
         
-        prompt = f"""You are an expert resume consultant and ATS optimization specialist. Analyze this resume and provide actionable improvement suggestions.
+        prompt = f"""
+You are an expert resume consultant and ATS optimization specialist. Use one consistent rubric to score and suggest improvements.
 
-CURRENT RESUME DATA:
+Resume (structured):
 - Skills: {skills}
 - Experience: {experience}
 - Education: {education}
-- Current Score: {current_score}/100
+- Current Analysis Score: {current_score}/100
 
-Provide detailed suggestions in this EXACT JSON format (ensure valid JSON):
+Scoring rubric (0–100 total):
+1. Overall structure (20)
+2. Skill relevance (40)
+3. Readability (20)
+4. ATS compatibility (20)
 
+Return ONLY valid JSON matching exactly:
 {{
-  "overall_score": <number 70-95>,
-  "improvement_potential": <number 5-30>,
+  "scores": {{
+    "overall_structure": <0-20 integer>,
+    "skill_relevance": <0-40 integer>,
+    "readability": <0-20 integer>,
+    "ats_compatibility": <0-20 integer>,
+    "total": <0-100 integer>
+  }},
+  "suggestions": [
+    {{"title": "...", "description": "..."}},
+    {{"title": "...", "description": "..."}},
+    {{"title": "...", "description": "..."}}
+  ],
   "critical_improvements": [
-    {{
-      "title": "Brief title",
-      "description": "Clear description of what to improve",
-      "priority": "high|medium|low",
-      "impact": "How this affects ATS score",
-      "examples": ["Example 1", "Example 2", "Example 3"]
-    }}
+    {{"title": "...", "description": "...", "priority": "high|medium|low", "impact": "...", "examples": ["...","..."]}}
   ],
   "skills_recommendations": {{
-    "trending_skills": ["Skill 1", "Skill 2", "Skill 3", "Skill 4", "Skill 5"],
-    "missing_keywords": ["Keyword 1", "Keyword 2", "Keyword 3", "Keyword 4"],
-    "skills_to_highlight": ["Important skill 1", "Important skill 2"]
+    "trending_skills": ["..."],
+    "missing_keywords": ["..."],
+    "skills_to_highlight": ["..."]
   }},
   "content_improvements": {{
-    "experience": ["Tip 1", "Tip 2", "Tip 3", "Tip 4"],
-    "format": ["Format tip 1", "Format tip 2", "Format tip 3"],
-    "summary": ["Summary tip 1", "Summary tip 2"]
+    "experience": ["..."],
+    "format": ["..."],
+    "summary": ["..."]
   }},
-  "ats_optimization_tips": [
-    "Specific ATS tip 1",
-    "Specific ATS tip 2",
-    "Specific ATS tip 3",
-    "Specific ATS tip 4",
-    "Specific ATS tip 5"
-  ],
-  "next_steps": [
-    {{
-      "step": 1,
-      "action": "First action to take",
-      "time": "Estimated time"
-    }},
-    {{
-      "step": 2,
-      "action": "Second action",
-      "time": "Estimated time"
-    }},
-    {{
-      "step": 3,
-      "action": "Third action",
-      "time": "Estimated time"
-    }}
-  ],
+  "ats_optimization_tips": ["..."],
+  "next_steps": [{{"step": 1, "action": "...", "time": "..."}}],
   "industry_insights": {{
-    "current_trends": ["Trend 1", "Trend 2", "Trend 3"],
-    "recruiter_preferences": ["Preference 1", "Preference 2"],
-    "common_mistakes": ["Mistake 1", "Mistake 2"]
-  }}
+    "current_trends": ["..."],
+    "recruiter_preferences": ["..."],
+    "common_mistakes": ["..."]
+  }},
+  "overall_score": <same as scores.total>,
+  "improvement_potential": <realistic integer 5-25>
 }}
 
-IMPORTANT:
-1. Provide 3-5 critical improvements with HIGH priority items first
-2. Focus on actionable, specific advice
-3. Include modern industry trends and ATS requirements
-4. Suggest 5-7 trending skills relevant to their experience
-5. Return ONLY valid JSON, no markdown, no code blocks
-6. Be encouraging but honest about improvement areas"""
+Rules:
+- Use the rubric above for both scoring and suggestions; they must align.
+- Return ONLY raw JSON, no markdown fences.
+- Keep scores realistic; base on the provided content.
+"""
 
         response = model.generate_content(prompt)
         response_text = response.text.strip()
@@ -111,15 +100,26 @@ IMPORTANT:
         response_text = response_text.strip()
         
         # Parse and validate JSON
-        suggestions = json.loads(response_text)
-        
-        # Ensure all required fields exist
-        if 'overall_score' not in suggestions:
-            suggestions['overall_score'] = 75
-        if 'improvement_potential' not in suggestions:
-            suggestions['improvement_potential'] = 25
-        
-        return suggestions
+        data = json.loads(response_text)
+        # Normalize and back-compat
+        if 'scores' in data and isinstance(data['scores'], dict):
+            total = data['scores'].get('total')
+            if isinstance(total, int):
+                data['overall_score'] = total
+        if 'overall_score' not in data:
+            data['overall_score'] = current_score
+        if 'improvement_potential' not in data:
+            data['improvement_potential'] = max(5, min(25, 100 - int(data['overall_score'])))
+        if 'suggestions' not in data or not isinstance(data['suggestions'], list):
+            crit = data.get('critical_improvements', [])
+            data['suggestions'] = [
+                {"title": c.get('title','Improve resume'), "description": c.get('description','Refine content for ATS and clarity')} for c in crit[:3]
+            ] or [
+                {"title": "Clarify summary", "description": "Write a concise, metrics-driven summary."},
+                {"title": "Highlight relevant skills", "description": "Move key skills to a dedicated section."},
+                {"title": "Quantify achievements", "description": "Add metrics to experience bullets."}
+            ]
+        return data
         
     except json.JSONDecodeError as e:
         return {
@@ -128,6 +128,7 @@ IMPORTANT:
         }
     except Exception as e:
         return {"error": f"AI generation failed: {str(e)}"}
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

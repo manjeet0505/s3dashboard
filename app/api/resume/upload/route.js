@@ -4,8 +4,9 @@ import jwt from 'jsonwebtoken';
 import fs from 'fs';
 import path from 'path';
 
-const uri = process.env.MONGODB_URI || 'mongodb+srv://mishramanjeet2909:muskan3445@cluster0.r4e7m.mongodb.net/s3dashboard';
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
+const uri = process.env.MONGODB_URI;
+const DB_NAME = process.env.MONGODB_DB;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export async function POST(request) {
   try {
@@ -109,7 +110,7 @@ export async function POST(request) {
       const client = new MongoClient(uri);
       await client.connect();
 
-      const db = client.db();
+      const db = DB_NAME ? client.db(DB_NAME) : client.db();
       const resumesCollection = db.collection('resumes');
 
       // Store resume data in MongoDB
@@ -156,7 +157,7 @@ export async function POST(request) {
       const client = new MongoClient(uri);
       await client.connect();
 
-      const db = client.db();
+      const db = DB_NAME ? client.db(DB_NAME) : client.db();
       const resumesCollection = db.collection('resumes');
 
       const resumeData = {

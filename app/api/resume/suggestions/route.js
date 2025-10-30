@@ -4,8 +4,9 @@ import path from 'path';
 import { MongoClient, ObjectId } from 'mongodb';
 import jwt from 'jsonwebtoken';
 
-const uri = process.env.MONGODB_URI || 'mongodb+srv://mishramanjeet2909:muskan3445@cluster0.r4e7m.mongodb.net/s3dashboard';
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
+const uri = process.env.MONGODB_URI;
+const DB_NAME = process.env.MONGODB_DB;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export async function POST(request) {
   let client = null;
@@ -26,7 +27,7 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { resumeData, currentAnalysis, requestType = 'comprehensive' } = body;
+    const { resumeData, currentScore, currentAnalysis, requestType = 'comprehensive' } = body;
 
     if (!resumeData) {
       return NextResponse.json(
@@ -45,10 +46,10 @@ export async function POST(request) {
       );
     }
 
-    // Prepare enhanced data for AI analysis
+    // Prepare enhanced data for AI analysis - use ACTUAL current score
     const enhancedData = {
       ...resumeData,
-      current_score: currentAnalysis?.overall_score || 0,
+      current_score: currentScore || currentAnalysis?.overall_score || 0,
       request_type: requestType,
       focus_areas: ['skills', 'experience', 'ats_optimization', 'content_quality']
     };
@@ -109,7 +110,7 @@ export async function POST(request) {
         client = new MongoClient(uri);
         await client.connect();
         
-        const db = client.db();
+        const db = DB_NAME ? client.db(DB_NAME) : client.db();
         const suggestionsCollection = db.collection('resume_suggestions');
         
         await suggestionsCollection.insertOne({
@@ -124,6 +125,29 @@ export async function POST(request) {
           requestType: requestType
         });
         
+        // Also persist AI scores into the latest resume document for this user
+        try {
+          const resumesCollection = db.collection('resumes');
+          const latest = await resumesCollection.findOne(
+            { userId: new ObjectId(userId) },
+            { sort: { createdAt: -1 } }
+          );
+          if (latest) {
+            await resumesCollection.updateOne(
+              { _id: latest._id },
+              { $set: {
+                  aiScores: suggestions.scores || null,
+                  aiOverallScore: typeof suggestions.overall_score === 'number' ? suggestions.overall_score : (suggestions.scores?.total ?? null),
+                  aiImprovementPotential: suggestions.improvement_potential ?? null,
+                  aiSuggestionsBrief: Array.isArray(suggestions.suggestions) ? suggestions.suggestions.slice(0, 3) : [],
+                  aiUpdatedAt: new Date()
+                }
+              }
+            );
+          }
+        } catch (updateErr) {
+          console.warn('Failed to update resume with AI scores:', updateErr?.message || updateErr);
+        }
       } catch (dbError) {
         console.error('Database save error:', dbError);
         // Don't fail the request if DB save fails
@@ -287,7 +311,7 @@ export async function GET(request) {
     client = new MongoClient(uri);
     await client.connect();
     
-    const db = client.db();
+    const db = DB_NAME ? client.db(DB_NAME) : client.db();
     const suggestionsCollection = db.collection('resume_suggestions');
     
     const history = await suggestionsCollection

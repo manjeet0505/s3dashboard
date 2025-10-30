@@ -2,14 +2,15 @@ import { NextResponse } from 'next/server';
 import { MongoClient } from 'mongodb';
 import bcrypt from 'bcryptjs';
 
-const uri = process.env.MONGODB_URI || 'mongodb+srv://mishramanjeet2909:muskan3445@cluster0.r4e7m.mongodb.net/s3dashboard';
+const uri = process.env.MONGODB_URI;
+const DB_NAME = process.env.MONGODB_DB;
 
 export async function POST() {
   try {
     const client = new MongoClient(uri);
     await client.connect();
 
-    const db = client.db();
+    const db = DB_NAME ? client.db(DB_NAME) : client.db();
     const usersCollection = db.collection('users');
 
     // Check if test user already exists

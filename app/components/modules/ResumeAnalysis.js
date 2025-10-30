@@ -58,94 +58,331 @@ const ResumeAnalysis = ({ user }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [fileName, setFileName] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState(null);
+  const [pdfUrl, setPdfUrl] = useState(null);
   const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showParsedPreview, setShowParsedPreview] = useState(false);
 
   const calculateScore = (data) => {
     let score = 0;
     let details = [];
+    let penalties = [];
     
-    // Contact Information (0-15 points)
+    // Contact Information (0-10 points) - Basic requirement
     if (data.contact?.emails?.length > 0 && data.contact?.phones?.length > 0) {
-      score += 15;
-      details.push('Complete contact info');
-    } else if (data.contact?.emails?.length > 0 || data.contact?.phones?.length > 0) {
-      score += 8;
-      details.push('Partial contact info');
-    } else {
-      details.push('Missing contact info');
-    }
-    
-    // Skills Section (0-30 points) - STRICT evaluation
-    const skillCount = data.skills?.length || 0;
-    if (skillCount >= 10) {
-      score += 30;
-      details.push(`Strong skills (${skillCount} skills)`);
-    } else if (skillCount >= 6) {
-      score += 20;
-      details.push(`Good skills (${skillCount} skills)`);
-    } else if (skillCount >= 3) {
       score += 10;
-      details.push(`Few skills (${skillCount} skills)`);
+      details.push('✓ Complete contact info');
+    } else if (data.contact?.emails?.length > 0 || data.contact?.phones?.length > 0) {
+      score += 5;
+      details.push('⚠ Partial contact info');
+      penalties.push('Missing email or phone');
     } else {
-      details.push(`Very few skills (${skillCount} skills)`);
+      penalties.push('Missing contact information');
     }
     
-    // Work Experience (0-30 points)
+    // Skills Section (0-25 points) - STRICT, REALISTIC evaluation
+    const skillCount = data.skills?.length || 0;
+    if (skillCount === 0) {
+      penalties.push('No skills section found or no valid skills extracted');
+      details.push('✗ No skills detected');
+    } else {
+      const { points: skillPoints, note: skillNote } = computeWeightedSkillPoints(data.skills || []);
+      score += skillPoints;
+      details.push(`✓ ${skillNote} (${skillCount} skills)`);
+      if (skillPoints < 10) {
+        penalties.push('Consider adding more relevant technical skills');
+      }
+    }
+    
+    // Work Experience (0-35 points) - Most important section
     const expCount = data.experience?.length || 0;
     const hasRealExp = data.experience?.some(exp => 
       !exp.includes('No work experience') && 
       !exp.includes('couldn\'t be parsed') &&
-      exp.length > 20
+      exp.length > 30  // Stricter requirement
     );
     
-    if (hasRealExp && expCount >= 3) {
-      score += 30;
-      details.push(`Strong experience (${expCount} entries)`);
-    } else if (hasRealExp && expCount >= 2) {
-      score += 20;
-      details.push(`Good experience (${expCount} entries)`);
-    } else if (hasRealExp) {
-      score += 10;
-      details.push(`Limited experience (${expCount} entry)`);
+    if (!hasRealExp || expCount === 0) {
+      penalties.push('No work experience found');
+      details.push('✗ No work experience');
+    } else if (expCount >= 4) {
+      score += 35;
+      details.push(`✓ Extensive experience (${expCount} roles)`);
+    } else if (expCount >= 3) {
+      score += 28;
+      details.push(`✓ Solid experience (${expCount} roles)`);
+    } else if (expCount >= 2) {
+      score += 18;
+      details.push(`⚠ Moderate experience (${expCount} roles)`);
+      penalties.push('Experience section could be more detailed');
     } else {
-      details.push('No work experience found');
+      score += 8;
+      details.push(`⚠ Minimal experience (${expCount} role)`);
+      penalties.push('Limited work history');
     }
     
-    // Education (0-20 points)
+    // Education (0-15 points)
     const eduCount = data.education?.length || 0;
     const hasRealEdu = data.education?.some(edu => 
       !edu.includes('No education') && 
       !edu.includes('couldn\'t be parsed') &&
-      edu.length > 15
+      edu.length > 20  // Stricter
     );
     
-    if (hasRealEdu && eduCount >= 2) {
-      score += 20;
-      details.push(`Complete education (${eduCount} entries)`);
-    } else if (hasRealEdu) {
+    if (!hasRealEdu || eduCount === 0) {
+      penalties.push('No education section found');
+      details.push('✗ No education listed');
+    } else if (eduCount >= 2) {
       score += 15;
-      details.push(`Education present (${eduCount} entry)`);
+      details.push(`✓ Complete education (${eduCount} entries)`);
     } else {
-      details.push('No education found');
+      score += 10;
+      details.push(`✓ Education listed (${eduCount} entry)`);
     }
     
-    // Content Quality Bonus (0-5 points)
+    // Content Quality (0-15 points) - Comprehensive check
     const totalWords = data.word_count || 0;
-    if (totalWords > 300) {
+    if (totalWords >= 400) {
+      score += 15;
+      details.push('✓ Well-detailed content');
+    } else if (totalWords >= 250) {
+      score += 10;
+      details.push('⚠ Adequate detail');
+      penalties.push('Could provide more detail about experience');
+    } else if (totalWords >= 150) {
       score += 5;
-      details.push('Good content length');
-    } else if (totalWords > 150) {
-      score += 2;
-      details.push('Adequate content');
+      details.push('⚠ Brief content');
+      penalties.push('Resume lacks sufficient detail');
     } else {
-      details.push('Too brief');
+      score += 2;
+      details.push('✗ Too brief');
+      penalties.push('Resume is critically short');
+    }
+    
+    // Apply reality check - prevent inflated scores
+    const finalScore = Math.min(score, 100);
+    
+    // Additional penalties for weak resumes
+    if (skillCount < 5 && expCount < 2) {
+      const weakPenalty = 10;
+      score = Math.max(0, finalScore - weakPenalty);
+      penalties.push(`Overall resume needs significant improvement (-${weakPenalty} points)`);
     }
     
     return {
-      score: Math.min(score, 100),
-      details: details
+      score: Math.max(0, Math.min(score, 100)),
+      details: details,
+      penalties: penalties,
+      breakdown: {
+        contact: data.contact?.emails?.length > 0 && data.contact?.phones?.length > 0 ? 10 : 5,
+        skills: skillCount,
+        experience: expCount,
+        education: eduCount,
+        wordCount: totalWords
+      }
     };
+  };
+
+  // Skill categories and weights for weighted scoring
+  const SKILL_CATEGORY_MAP = {
+    // Backend
+    'Node.js': 'backend', 'Express': 'backend', 'Django': 'backend', 'Flask': 'backend', 'FastAPI': 'backend', 'Spring Boot': 'backend', 'NestJS': 'backend', 'GraphQL': 'backend', 'REST': 'backend',
+    // Databases
+    'PostgreSQL': 'db', 'MySQL': 'db', 'MongoDB': 'db', 'Redis': 'db', 'SQLite': 'db',
+    // Cloud/DevOps
+    'AWS': 'cloud', 'Azure': 'cloud', 'GCP': 'cloud', 'Docker': 'cloud', 'Kubernetes': 'cloud', 'Terraform': 'cloud',
+    // Frontend
+    'React': 'frontend', 'Next.js': 'frontend', 'Redux': 'frontend', 'HTML': 'frontend', 'CSS': 'frontend', 'Sass': 'frontend', 'Tailwind CSS': 'frontend', 'Webpack': 'frontend', 'Vite': 'frontend',
+    // Testing
+    'Jest': 'test', 'Mocha': 'test', 'Chai': 'test', 'Cypress': 'test', 'Selenium': 'test',
+    // General/Tools
+    'Git': 'general', 'GitHub': 'general', 'GitLab': 'general', 'Bitbucket': 'general', 'Jira': 'general', 'Confluence': 'general',
+    // Languages
+    'JavaScript': 'lang', 'TypeScript': 'lang', 'Java': 'lang', 'Python': 'lang'
+  };
+
+  const SKILL_WEIGHTS = {
+    backend: 2.0,
+    db: 1.6,
+    cloud: 1.8,
+    frontend: 1.2,
+    test: 1.1,
+    general: 0.6,
+    lang: 1.4
+  };
+
+  // Compute weighted skill points normalized to 0-25
+  const computeWeightedSkillPoints = (skills) => {
+    if (!Array.isArray(skills) || skills.length === 0) return { points: 0, note: 'No skills detected' };
+
+    const seen = new Set();
+    let weighted = 0;
+
+    for (const s of skills) {
+      if (!s || typeof s !== 'string') continue;
+      const canon = s.trim();
+      if (!canon) continue;
+      const key = canon.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const cat = SKILL_CATEGORY_MAP[canon] || 'general';
+      const w = SKILL_WEIGHTS[cat] ?? 1.0;
+      weighted += Math.min(w, 2.2);
+    }
+
+    const normalized = Math.min(25, Math.round((weighted / 18) * 25));
+    const note = `Weighted skills: ${normalized}/25 (raw=${weighted.toFixed(1)})`;
+    return { points: normalized, note };
+  };
+
+  // Canonical skill mapping with lightweight fuzzy matching
+  const CANONICAL_SKILLS = [
+    'Java', 'Python', 'JavaScript', 'TypeScript', 'React', 'Next.js', 'Redux', 'Node.js', 'Express',
+    'MongoDB', 'PostgreSQL', 'MySQL', 'SQLite', 'Redis', 'GraphQL', 'REST', 'HTML', 'CSS', 'Sass',
+    'Tailwind CSS', 'Bootstrap', 'Webpack', 'Vite', 'Jest', 'Mocha', 'Chai', 'Cypress', 'Selenium',
+    'Docker', 'Kubernetes', 'Terraform', 'AWS', 'Azure', 'GCP', 'Git', 'GitHub', 'GitLab', 'Bitbucket',
+    'Jira', 'Confluence', 'Django', 'Flask', 'FastAPI', 'Spring Boot', 'Laravel', 'NestJS', 'Socket.IO'
+  ];
+
+  const SKILL_ALIASES = {
+    'Node.js': ['Node', 'NodeJS', 'Node Js', 'node-js'],
+    'Next.js': ['Next', 'NextJS', 'Next js', 'Nextjs'],
+    'Tailwind CSS': ['Tailwind', 'TailwindCSS', 'tailwindcss', 'tailwind css'],
+    'PostgreSQL': ['Postgres'],
+    'Kubernetes': ['K8s', 'k8s'],
+    'JavaScript': ['JS', 'Javascript'],
+    'TypeScript': ['TS', 'Typescript'],
+    'REST': ['RESTful', 'REST API'],
+    'React': ['ReactJS', 'React.js', 'React js'],
+    'Express': ['ExpressJS', 'Express.js', 'Express js'],
+    'GitHub': ['Github'],
+    'GitLab': ['Gitlab'],
+    'Spring Boot': ['SpringBoot', 'Spring boot', 'Spring']
+  };
+
+  const ALIAS_TO_CANON = (() => {
+    const map = {};
+    Object.keys(SKILL_ALIASES).forEach((canon) => {
+      SKILL_ALIASES[canon].forEach((alias) => {
+        map[alias.toLowerCase()] = canon;
+      });
+    });
+    CANONICAL_SKILLS.forEach((canon) => {
+      map[canon.toLowerCase()] = canon;
+    });
+    return map;
+  })();
+
+  const normalizeSkillString = (s) => {
+    if (!s || typeof s !== 'string') return '';
+    let out = s.trim();
+    out = out.replace(/[_\.]/g, ' ');
+    out = out.replace(/\s+/g, ' ');
+    out = out.replace(/\b(v|ver|version)\s*\d+(?:\.\d+)*\b/gi, '');
+    out = out.replace(/\b\d+(?:\.\d+)*\b/g, '');
+    return out.trim().toLowerCase();
+  };
+
+  const tokenize = (s) => normalizeSkillString(s)
+    .split(' ')
+    .filter(Boolean);
+
+  // Lightweight token-set similarity (0..100)
+  const tokenSetSimilarity = (a, b) => {
+    const ta = new Set(tokenize(a));
+    const tb = new Set(tokenize(b));
+    if (ta.size === 0 || tb.size === 0) return 0;
+    let intersect = 0;
+    ta.forEach((t) => { if (tb.has(t)) intersect += 1; });
+    const score = (2 * intersect) / (ta.size + tb.size); // Sørensen–Dice
+    return Math.round(score * 100);
+  };
+
+  const partialSimilarity = (a, b) => {
+    const na = normalizeSkillString(a);
+    const nb = normalizeSkillString(b);
+    if (!na || !nb) return 0;
+    if (na === nb) return 100;
+    if (na.includes(nb) || nb.includes(na)) return Math.round((Math.min(na.length, nb.length) / Math.max(na.length, nb.length)) * 100);
+    return 0;
+  };
+
+  const bestSimilarityScore = (a, b) => {
+    return Math.max(tokenSetSimilarity(a, b), partialSimilarity(a, b));
+  };
+
+  const mapToCanonicalSkills = (candidates) => {
+    if (!Array.isArray(candidates)) return [];
+    const detected = new Set();
+
+    for (const raw of candidates) {
+      if (!raw || typeof raw !== 'string') continue;
+      const norm = normalizeSkillString(raw);
+      if (!norm) continue;
+
+      // Exact/alias mapping
+      const aliased = ALIAS_TO_CANON[norm];
+      if (aliased) {
+        detected.add(aliased);
+        continue;
+      }
+
+      // Fuzzy mapping
+      let best = null;
+      let bestScore = 0;
+      for (const canon of CANONICAL_SKILLS) {
+        const score = bestSimilarityScore(norm, canon);
+        if (score > bestScore) {
+          bestScore = score;
+          best = canon;
+        }
+      }
+      // Use stricter threshold by default; loosen if looks like a skills list token
+      const threshold = /[,;•\-]/.test(raw) ? 78 : 85;
+      if (best && bestScore >= threshold) {
+        detected.add(best);
+      }
+    }
+
+    return Array.from(detected);
+  };
+
+  // Finalize skills by removing obvious junk only (length and negative patterns)
+  const finalizeSkills = (skills) => {
+    const excludePatterns = [
+      /\d{1,2}\/\d{1,4}/,
+      /^\d{4}$/,
+      /^\d{1,2}$/,
+      /^[a-z]\s+/i,
+      /gurugram|delhi|mumbai|bangalore|india|noida|gurgaon/i,
+      /automated|tracking|spending|expenses|patterns/i,
+      /soft\s+skills|hard\s+skills/i,
+      /integration|styling|design|concepts|effort|times|section/i,
+      /particular|generative|consistent|logical|minimal|fast|load/i,
+      /google\s+fonts|github\s+copilot|chatgpt/i,
+      /link|website|portfolio|email|phone|address/i,
+      /^(the|and|or|of|in|to|for|with|on|at|from|by|a|an)$/i,
+      /qna|desi|websjyoti|copilot/i,
+      /january|february|march|april|may|june|july|august|september|october|november|december/i,
+      /monday|tuesday|wednesday|thursday|friday|saturday|sunday/i
+    ];
+
+    const out = [];
+    const seen = new Set();
+    for (const s of skills) {
+      if (!s || typeof s !== 'string') continue;
+      const trimmed = s.trim();
+      const lower = trimmed.toLowerCase();
+      if (lower.length < 2 || lower.length > 40) continue;
+      if (excludePatterns.some((p) => p.test(lower))) continue;
+      const display = (ALIAS_TO_CANON[lower] || trimmed).replace(/\s+/g, ' ').trim();
+      if (!seen.has(display.toLowerCase())) {
+        seen.add(display.toLowerCase());
+        out.push(display);
+      }
+    }
+    return out;
   };
 
   const cleanSkills = (skills) => {
@@ -261,10 +498,22 @@ const ResumeAnalysis = ({ user }) => {
     setFileName(file.name);
     setUploadProgress(20);
 
+    // Prepare original PDF preview (non-blocking)
+    if (file.type === 'application/pdf') {
+      try { if (pdfUrl) URL.revokeObjectURL(pdfUrl); } catch {}
+      const url = URL.createObjectURL(file);
+      setPdfUrl(url);
+    } else {
+      // Clear any previous PDF preview for non-PDF uploads
+      try { if (pdfUrl) URL.revokeObjectURL(pdfUrl); } catch {}
+      setPdfUrl(null);
+    }
+
     const formData = new FormData();
     formData.append('file', file);
 
     try {
+      const parseStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
       setUploadProgress(40);
       const response = await fetch('/api/parse-resume', {
         method: 'POST',
@@ -288,9 +537,11 @@ const ResumeAnalysis = ({ user }) => {
       // Log original skills from parser
       console.log('Skills from Python parser:', result.skills);
       
-      // Filter skills to remove non-skill items (dates, locations, etc.)
-      const cleanedSkills = cleanSkills(result.skills || []);
-      console.log('Skills after JavaScript filter:', cleanedSkills);
+      // Canonicalize to a controlled skill list, then remove obvious junk
+      const canonicalSkills = mapToCanonicalSkills(result.skills || []);
+      const cleanedSkills = finalizeSkills(canonicalSkills);
+      console.log('Skills after canonical mapping:', canonicalSkills);
+      console.log('Skills after final cleanup:', cleanedSkills);
       
       const cleanedResult = {
         ...result,
@@ -319,6 +570,36 @@ const ResumeAnalysis = ({ user }) => {
       
       // Dispatch event to notify dashboard of update
       window.dispatchEvent(new Event('resumeAnalyzed'));
+
+      // Non-blocking: persist analysis and timing to backend
+      const parseEnd = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      const parseDurationMs = Math.round(parseEnd - parseStart);
+      (async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const headers = { 'Content-Type': 'application/json' };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          await fetch('/api/resume/store', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              fileName: file.name,
+              fileSize: file.size,
+              mimeType: file.type,
+              userId,
+              analysis: cleanedResult,
+              score: scoreResult.score,
+              scoreBreakdown: scoreResult.details,
+              penalties: scoreResult.penalties,
+              breakdownCounts: scoreResult.breakdown,
+              parseDurationMs,
+              createdAt: new Date().toISOString()
+            })
+          });
+        } catch (e) {
+          console.warn('Failed to persist resume analysis:', e);
+        }
+      })();
 
     } catch (err) {
       console.error('Error:', err);
@@ -373,6 +654,7 @@ const ResumeAnalysis = ({ user }) => {
         headers: headers,
         body: JSON.stringify({
           resumeData: analysisResults.extractedData,
+          currentScore: resumeScore, // Pass current analysis score
           currentAnalysis: aiAnalysis,
           requestType: 'comprehensive'
         })
@@ -491,6 +773,185 @@ const ResumeAnalysis = ({ user }) => {
       )}
     </motion.div>
   );
+
+  const renderParsedResumePreview = () => {
+    if (!analysisResults?.extractedData) return null;
+
+    const data = analysisResults.extractedData;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="mt-8"
+      >
+        <div className="bg-white/5 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10 p-8"
+          style={{
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5), 0 8px 20px rgba(129, 140, 248, 0.15)'
+          }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-xl border border-indigo-500/30">
+                <Eye className="h-6 w-6 text-indigo-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white">Parsed Resume Preview</h2>
+                <p className="text-sm text-gray-400 mt-1">What we extracted from your resume</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowParsedPreview(false)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+
+          {/* Resume Content */}
+          <div className="space-y-6 bg-gradient-to-br from-white/5 to-white/10 rounded-xl p-6 border border-white/10">
+            
+            {/* Contact Section */}
+            {(data.contact?.emails?.length > 0 || data.contact?.phones?.length > 0) && (
+              <div>
+                <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full"></div>
+                  Contact Information
+                </h3>
+                <div className="bg-white/5 rounded-lg p-4 space-y-2">
+                  {data.contact.emails?.map((email, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="text-indigo-400 text-sm">📧</span>
+                      <span className="text-gray-200">{email}</span>
+                    </div>
+                  ))}
+                  {data.contact.phones?.map((phone, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="text-indigo-400 text-sm">📱</span>
+                      <span className="text-gray-200">{phone}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Skills Section */}
+            {data.skills?.length > 0 && (
+              <div>
+                <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+                  Technical Skills
+                </h3>
+                <div className="bg-white/5 rounded-lg p-4">
+                  <div className="flex flex-wrap gap-2">
+                    {data.skills.map((skill, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1.5 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 rounded-lg text-sm font-medium border border-emerald-500/30"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-3">
+                    {data.skills.length} {data.skills.length === 1 ? 'skill' : 'skills'} extracted
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Experience Section */}
+            {data.experience && data.experience.length > 0 && !data.experience[0].includes('No work experience') && (
+              <div>
+                <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full"></div>
+                  Work Experience
+                </h3>
+                <div className="space-y-3">
+                  {data.experience.map((exp, index) => (
+                    <div key={index} className="bg-white/5 rounded-lg p-4 border-l-2 border-blue-500">
+                      <p className="text-gray-200 text-sm leading-relaxed">{exp}</p>
+                    </div>
+                  ))}
+                  <p className="text-xs text-gray-400 mt-2">
+                    {data.experience.length} {data.experience.length === 1 ? 'entry' : 'entries'} found
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Projects Section */}
+            {data.projects && data.projects.length > 0 && !data.projects[0].includes('No projects') && (
+              <div>
+                <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-gradient-to-b from-amber-500 to-orange-500 rounded-full"></div>
+                  Projects
+                </h3>
+                <div className="space-y-3">
+                  {data.projects.map((project, index) => (
+                    <div key={index} className="bg-white/5 rounded-lg p-4 border-l-2 border-amber-500">
+                      <p className="text-gray-200 text-sm leading-relaxed">{project}</p>
+                    </div>
+                  ))}
+                  <p className="text-xs text-gray-400 mt-2">
+                    {data.projects.length} {data.projects.length === 1 ? 'project' : 'projects'} found
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Education Section */}
+            {data.education && data.education.length > 0 && !data.education[0].includes('No education') && (
+              <div>
+                <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                  Education
+                </h3>
+                <div className="space-y-3">
+                  {data.education.map((edu, index) => (
+                    <div key={index} className="bg-white/5 rounded-lg p-4 border-l-2 border-purple-500">
+                      <p className="text-gray-200 text-sm leading-relaxed">{edu}</p>
+                    </div>
+                  ))}
+                  <p className="text-xs text-gray-400 mt-2">
+                    {data.education.length} {data.education.length === 1 ? 'entry' : 'entries'} found
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Stats Footer */}
+            <div className="border-t border-white/10 pt-4 mt-6">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-indigo-400">{data.skills?.length || 0}</div>
+                  <div className="text-xs text-gray-400">Skills</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-400">{data.experience?.length || 0}</div>
+                  <div className="text-xs text-gray-400">Experience</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-amber-400">{data.projects?.length || 0}</div>
+                  <div className="text-xs text-gray-400">Projects</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-400">{data.education?.length || 0}</div>
+                  <div className="text-xs text-gray-400">Education</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-emerald-400">{data.word_count || 0}</div>
+                  <div className="text-xs text-gray-400">Words</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
 
   const renderAnalysisResults = () => {
     if (!analysisComplete || !analysisResults) return null;
@@ -777,9 +1238,24 @@ const ResumeAnalysis = ({ user }) => {
                 <h3 className="text-lg font-semibold text-white mb-3">Work Experience</h3>
                 <div className="space-y-2">
                   {analysisResults.extractedData.experience.map((exp, index) => (
-                    <div key={index} className="flex items-start bg-white/5 backdrop-blur-sm p-3 rounded-lg border border-white/10">
-                      <FileText className="h-4 w-4 text-indigo-400 mt-1 mr-2 flex-shrink-0" />
-                      <p className="text-sm text-gray-300">{exp}</p>
+                    <div key={index} className="flex items-start bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/10">
+                      <FileText className="h-4 w-4 text-indigo-400 mt-1 mr-3 flex-shrink-0" />
+                      <p className="text-sm text-gray-300 break-words whitespace-normal flex-1">{exp}</p>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Projects Section */}
+            {analysisResults.extractedData?.projects && (
+              <motion.div variants={itemFadeIn} className="mt-6">
+                <h3 className="text-lg font-semibold text-white mb-3">Projects</h3>
+                <div className="space-y-2">
+                  {analysisResults.extractedData.projects.map((project, index) => (
+                    <div key={index} className="flex items-start bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/10">
+                      <Zap className="h-4 w-4 text-amber-400 mt-1 mr-3 flex-shrink-0" />
+                      <p className="text-sm text-gray-300 break-words whitespace-normal flex-1">{project}</p>
                     </div>
                   ))}
                 </div>
@@ -792,9 +1268,9 @@ const ResumeAnalysis = ({ user }) => {
                 <h3 className="text-lg font-semibold text-white mb-3">Education</h3>
                 <div className="space-y-2">
                   {analysisResults.extractedData.education.map((edu, index) => (
-                    <div key={index} className="flex items-start bg-white/5 backdrop-blur-sm p-3 rounded-lg border border-white/10">
-                      <BarChart className="h-4 w-4 text-purple-400 mt-1 mr-2 flex-shrink-0" />
-                      <p className="text-sm text-gray-300">{edu}</p>
+                    <div key={index} className="flex items-start bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/10">
+                      <BarChart className="h-4 w-4 text-purple-400 mt-1 mr-3 flex-shrink-0" />
+                      <p className="text-sm text-gray-300 break-words whitespace-normal flex-1">{edu}</p>
                     </div>
                   ))}
                 </div>
@@ -807,15 +1283,15 @@ const ResumeAnalysis = ({ user }) => {
                 <h3 className="text-lg font-semibold text-white mb-3">Contact Information</h3>
                 <div className="space-y-2">
                   {analysisResults.extractedData.contact.emails?.map((email, index) => (
-                    <div key={`email-${index}`} className="flex items-center text-sm bg-white/5 backdrop-blur-sm p-3 rounded-lg border border-white/10">
-                      <span className="font-semibold text-indigo-400 mr-2">Email:</span>
-                      <span className="text-gray-300">{email}</span>
+                    <div key={`email-${index}`} className="flex items-start text-sm bg-white/5 backdrop-blur-sm p-3 rounded-lg border border-white/10">
+                      <span className="font-semibold text-indigo-400 mr-2 flex-shrink-0">Email:</span>
+                      <span className="text-gray-300 break-all flex-1">{email}</span>
                     </div>
                   ))}
                   {analysisResults.extractedData.contact.phones?.map((phone, index) => (
-                    <div key={`phone-${index}`} className="flex items-center text-sm bg-white/5 backdrop-blur-sm p-3 rounded-lg border border-white/10">
-                      <span className="font-semibold text-indigo-400 mr-2">Phone:</span>
-                      <span className="text-gray-300">{phone}</span>
+                    <div key={`phone-${index}`} className="flex items-start text-sm bg-white/5 backdrop-blur-sm p-3 rounded-lg border border-white/10">
+                      <span className="font-semibold text-indigo-400 mr-2 flex-shrink-0">Phone:</span>
+                      <span className="text-gray-300 break-all flex-1">{phone}</span>
                     </div>
                   ))}
                 </div>
@@ -879,6 +1355,15 @@ const ResumeAnalysis = ({ user }) => {
           className="mt-8 flex flex-col sm:flex-row justify-center gap-4"
         >
           <motion.button
+            onClick={() => setShowParsedPreview(!showParsedPreview)}
+            className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-semibold rounded-xl text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-blue-500/50"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <Eye className="-ml-1 mr-2 h-5 w-5" />
+            {showParsedPreview ? 'Hide' : 'View'} Parsed Resume
+          </motion.button>
+          <motion.button
             onClick={handleGetSuggestions}
             disabled={isGeneratingSuggestions}
             className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-semibold rounded-xl text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -904,6 +1389,7 @@ const ResumeAnalysis = ({ user }) => {
               setAnalysisResults(null);
               setAiSuggestions(null);
               setShowSuggestions(false);
+              setShowParsedPreview(false);
               setFileName('');
               setError(null);
             }}
@@ -914,14 +1400,35 @@ const ResumeAnalysis = ({ user }) => {
             <Upload className="-ml-1 mr-2 h-5 w-5" />
             Analyze Another Resume
           </motion.button>
-          <motion.button 
-            className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-semibold rounded-xl text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-indigo-500/50"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
+        </motion.div>
+      )}
+
+      {/* Original Resume Preview */}
+      {analysisComplete && pdfUrl && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.35 }}
+          className="mt-8"
+        >
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden border border-white/10 p-6"
+            style={{ boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5), 0 8px 20px rgba(129, 140, 248, 0.15)' }}
           >
-            <Download className="-ml-1 mr-2 h-5 w-5" />
-            Download PDF Report
-          </motion.button>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-xl border border-indigo-500/30">
+                  <FileText className="h-5 w-5 text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Original Resume Preview</h3>
+                  <p className="text-xs text-gray-400">Exact PDF rendering (layout preserved)</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg overflow-hidden border border-white/10 bg-black/20">
+              <embed src={`${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1`} type="application/pdf" width="100%" height="800px" />
+            </div>
+          </div>
         </motion.div>
       )}
 
@@ -1097,6 +1604,9 @@ const ResumeAnalysis = ({ user }) => {
           </div>
         </motion.div>
       )}
+
+      {/* Parsed Resume Preview */}
+      {showParsedPreview && analysisComplete && renderParsedResumePreview()}
     </div>
   );
 };

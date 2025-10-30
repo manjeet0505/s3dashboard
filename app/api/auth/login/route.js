@@ -3,8 +3,9 @@ import { MongoClient } from 'mongodb';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-const uri = process.env.MONGODB_URI || 'mongodb+srv://mishramanjeet2909:muskan3445@cluster0.r4e7m.mongodb.net/s3dashboard';
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
+const uri = process.env.MONGODB_URI;
+const DB_NAME = process.env.MONGODB_DB;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export async function POST(request) {
   try {
@@ -22,7 +23,7 @@ export async function POST(request) {
     const client = new MongoClient(uri);
     await client.connect();
 
-    const db = client.db();
+    const db = DB_NAME ? client.db(DB_NAME) : client.db();
     const usersCollection = db.collection('users');
 
     // Find user by email

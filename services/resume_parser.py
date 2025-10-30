@@ -24,11 +24,10 @@ def extract_text(file_path):
         raise ValueError(f"Error reading file: {str(e)}")
 
 def extract_skills(text):
-    """Extract ONLY real technical skills - STRICT filtering"""
+    """Extract ONLY skills from the Skills section - STRICT section-based extraction"""
     skills = set()
-    text_lower = text.lower()
     
-    # Comprehensive list of valid technical skills
+    # Comprehensive list of valid technical skills (for validation)
     valid_skills = {
         # Programming Languages
         'python', 'javascript', 'java', 'c++', 'c#', 'php', 'ruby', 'swift', 'kotlin', 'go', 'rust',
@@ -87,9 +86,78 @@ def extract_skills(text):
         'rabbitmq', 'kafka', 'activemq', 'memcached', 'varnish', 'prometheus', 'grafana'
     }
     
-    # ONLY match skills from the whitelist
+    # CRITICAL: Only search in the Skills section
+    lines = text.split('\n')
+    in_skills_section = False
+    skills_section_text = []
+    
+    # Patterns to identify Skills section start
+    skill_section_patterns = [
+        r'(?i)^skills?\s*:?\s*$',
+        r'(?i)^technical\s+skills?\s*:?\s*$',
+        r'(?i)^core\s+(?:technical\s+)?skills?\s*:?\s*$',
+        r'(?i)^key\s+skills?\s*:?\s*$',
+        r'(?i)^competencies\s*:?\s*$'
+    ]
+    
+    # Patterns to identify when Skills section ends (new section starts)
+    section_end_patterns = [
+        r'(?i)^(?:work\s+)?experience\s*:?\s*$',
+        r'(?i)^(?:professional\s+)?(?:employment\s+)?history\s*:?\s*$',
+        r'(?i)^education\s*:?\s*$',
+        r'(?i)^projects?\s*:?\s*$',
+        r'(?i)^certifications?\s*:?\s*$',
+        r'(?i)^awards?\s*:?\s*$',
+        r'(?i)^publications?\s*:?\s*$',
+        r'(?i)^references?\s*:?\s*$',
+        r'(?i)^summary\s*:?\s*$',
+        r'(?i)^objective\s*:?\s*$'
+    ]
+    
+    for line in lines:
+        stripped = line.strip()
+        
+        # Check if entering skills section
+        if any(re.match(pattern, stripped) for pattern in skill_section_patterns):
+            in_skills_section = True
+            continue
+        
+        # Check if leaving skills section
+        if in_skills_section and any(re.match(pattern, stripped) for pattern in section_end_patterns):
+            break
+        
+        # Collect skills section content
+        if in_skills_section and stripped:
+            skills_section_text.append(stripped)
+    
+    # If no dedicated skills section found, try bullet points or any skill mentions
+    if not skills_section_text:
+        print("WARNING: No clear Skills section found, trying alternative extraction", file=sys.stderr)
+        # Fallback: extract from entire document but still validate against whitelist
+        skills_text = text.lower()
+        for skill in valid_skills:
+            pattern = r'\b' + re.escape(skill) + r'\b'
+            if re.search(pattern, skills_text):
+                display_skill = skill.title() if skill.islower() else skill
+                if skill in ['html', 'css', 'sql', 'api', 'xml', 'json', 'jwt', 'http', 'https', 'ai', 'ml', 'nlp']:
+                    display_skill = skill.upper()
+                elif skill in ['node.js', 'next.js', 'vue.js', 'react.js', 'express.js']:
+                    display_skill = skill
+                elif skill in ['javascript', 'typescript']:
+                    display_skill = skill.capitalize()
+                skills.add(display_skill)
+        extracted_skills = sorted(list(skills))[:25]
+        print(f"INFO: Extracted {len(extracted_skills)} skills using fallback method", file=sys.stderr)
+        return extracted_skills
+    
+    # Now extract skills ONLY from the skills section
+    skills_text = ' '.join(skills_section_text).lower()
+    
+    # Extract skills from the skills section only
     for skill in valid_skills:
-        if skill in text_lower:
+        # Use word boundaries to avoid partial matches
+        pattern = r'\b' + re.escape(skill) + r'\b'
+        if re.search(pattern, skills_text):
             # Capitalize properly for display
             display_skill = skill.title() if skill.islower() else skill
             if skill in ['html', 'css', 'sql', 'api', 'xml', 'json', 'jwt', 'http', 'https', 'ai', 'ml', 'nlp']:
@@ -100,8 +168,10 @@ def extract_skills(text):
                 display_skill = skill.capitalize()
             skills.add(display_skill)
     
-    # Sort and return only unique, valid skills
-    return sorted(list(skills))[:25]  # Limit to 25 skills
+    # Sort and return only unique, valid skills from Skills section
+    extracted_skills = sorted(list(skills))[:25]
+    print(f"INFO: Extracted {len(extracted_skills)} skills from Skills section", file=sys.stderr)
+    return extracted_skills
 
 def extract_experience(text):
     """Extract work experience information"""
@@ -171,16 +241,93 @@ def extract_education(text):
     
     return education[:10]  # Limit to 10 entries
 
+def extract_projects(text):
+    """Extract projects information"""
+    projects = []
+    lines = text.split('\n')
+    in_projects_section = False
+    project_text = []
+    
+    # Patterns to identify Projects section
+    project_patterns = [
+        r'(?i)^projects?\s*:?',
+        r'(?i)^personal\s+projects?\s*:?',
+        r'(?i)^academic\s+projects?\s*:?',
+        r'(?i)^key\s+projects?\s*:?'
+    ]
+    
+    # Section end patterns
+    section_end_patterns = [
+        r'(?i)^(?:work\s+)?experience\s*:?',
+        r'(?i)^education\s*:?',
+        r'(?i)^skills?\s*:?',
+        r'(?i)^certifications?\s*:?',
+        r'(?i)^awards?\s*:?'
+    ]
+    
+    for line in lines:
+        stripped = line.strip()
+        
+        # Check if entering projects section
+        if any(re.search(pattern, stripped) for pattern in project_patterns):
+            in_projects_section = True
+            continue
+        
+        # Check if leaving projects section
+        if in_projects_section and any(re.match(pattern, stripped) for pattern in section_end_patterns):
+            break
+        
+        # Collect project content
+        if in_projects_section and stripped and len(stripped) > 15:
+            project_text.append(stripped)
+    
+    if not project_text:
+        return ["No projects section found or couldn't be parsed."]
+    
+    # Group into projects (assume bullet points or line breaks separate them)
+    current_project = []
+    for line in project_text:
+        # If line starts with bullet or number, it's a new project
+        if re.match(r'^[•\-\*\d+\.]', line) or (current_project and len(line) > 50):
+            if current_project:
+                projects.append(' '.join(current_project))
+            current_project = [line.lstrip('•\-\*\d. ')]
+        else:
+            if current_project:
+                current_project.append(line)
+            else:
+                current_project = [line]
+    
+    # Add last project
+    if current_project:
+        projects.append(' '.join(current_project))
+    
+    return projects[:10] if projects else ["No projects section found or couldn't be parsed."]
+
 def extract_contact_info(text):
-    """Extract contact information"""
+    """Extract contact information - improved phone number detection"""
     # Email
     emails = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text)
-    # Phone numbers (international format)
-    phones = re.findall(r'(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', text)
+    
+    # Phone numbers - multiple patterns for better detection
+    phone_patterns = [
+        r'\+?\d{1,4}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}',  # International
+        r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}',  # US format
+        r'\d{10}',  # Plain 10 digits
+        r'\d{3}[-.\s]\d{3}[-.\s]\d{4}',  # With separators
+    ]
+    
+    phones = []
+    for pattern in phone_patterns:
+        found = re.findall(pattern, text)
+        phones.extend(found)
+    
+    # Clean and deduplicate phones
+    phones = list(set([p.strip() for p in phones if len(p.strip()) >= 10]))
     
     return {
         'emails': list(set(emails)),
-        'phones': list(set(phones))
+        'phones': phones
     }
 
 def main(file_path):
@@ -196,6 +343,7 @@ def main(file_path):
             "skills": extract_skills(text),
             "experience": extract_experience(text),
             "education": extract_education(text),
+            "projects": extract_projects(text),
             "contact": extract_contact_info(text),
             "summary": text[:500] + ("..." if len(text) > 500 else ""),
             "word_count": len(text.split()),
